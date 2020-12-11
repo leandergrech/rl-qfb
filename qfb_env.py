@@ -1,7 +1,8 @@
+import gym
 from gym.spaces import Box
 import numpy as np
 
-class QFBEnv():
+class QFBEnv(gym.Env):
     rm_loc = 'LHC_TRM_B1.response'
     F_s = 11245.55
     Q_init_std_hz = 50
@@ -10,11 +11,14 @@ class QFBEnv():
     obs_norm = Q_limit_hz / F_s
     act_norm = 1e-2
 
+    reward_accumulated_limit = -10
+
     def __init__(self):
         self._last_action = None
         self._current_state = None
         self._prev_state = None
         self._reward = None
+        self._cum_reward = None
 
         self.__full_rm = None
         self.__knobNames = None
@@ -36,6 +40,7 @@ class QFBEnv():
         self._current_state = np.random.normal(0, self.Q_init_std_hz / (self.F_s * self.obs_norm), 2)
         self._prev_state = self._current_state
         self._last_action = np.zeros(self.act_dimension)
+        self._cum_reward = 0
 
         return self._current_state
 
@@ -48,9 +53,10 @@ class QFBEnv():
         trim_state = np.divide(trim_state, self.obs_norm)
 
         self._prev_state = self._current_state
-        self._current_state = self._current_state + trim_state
+        self._current_state = self._current_state - trim_state
 
         self._reward = self.objective()
+        self._cum_reward += self._reward
         done = self.is_done()
 
         return self._current_state, self._reward, done, {}
@@ -62,6 +68,8 @@ class QFBEnv():
         ave_rew = np.abs(self._reward) / 2
 
         if ave_rew < self.Q_goal_hz / (self.F_s * self.obs_norm) or ave_rew > self.Q_limit_hz / (self.F_s * self.obs_norm):
+            done = True
+        elif self._cum_reward < self.reward_accumulated_limit:
             done = True
         else:
             done = False
@@ -76,6 +84,9 @@ class QFBEnv():
 
     def get_action_prev(self):
         return self._last_action
+
+    def get_reward_cum(self):
+        return self._cum_reward
 
     def __get_rm(self, reload=False):
         if self.__full_rm is not None and not reload:
@@ -150,21 +161,34 @@ if __name__ == '__main__':
     n_act = env.act_dimension
     n_obs = env.obs_dimension
 
+    nb = 100
+
     import matplotlib.pyplot as plt
 
-    fig, ax = plt.subplots()
+    fig, (ax, ax2) = plt.subplots(2)
     l, = ax.plot(o)
     ax.axhline(env.Q_goal_hz / (env.F_s * env.obs_norm), color='g', ls='dashed')
     ax.axhline(env.Q_limit_hz / (env.F_s * env.obs_norm), color='r', ls='dashed')
     ax.axhline(-env.Q_goal_hz / (env.F_s * env.obs_norm), color='g', ls='dashed')
     ax.axhline(-env.Q_limit_hz / (env.F_s * env.obs_norm), color='r', ls='dashed')
 
+    cr_line, = ax2.plot([], [])
+    ax2.set_xlim((0, nb))
+    ax2.axhline(env.reward_accumulated_limit)
+
     plt.ion()
-    for i in range(100):
+
+    crs = []
+
+    for i in range(nb):
         action = env.action_space.sample()
         print(action)
         o, r, d, _ = env.step(action)
+        crs.append(env.get_reward_cum())
+
         l.set_ydata(o)
+        cr_line.set_data(range(i + 1), crs)
+        ax2.set_ylim((crs[-1], 0))
         print(d)
 
 
