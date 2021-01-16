@@ -150,7 +150,7 @@ class DDPGAgent:
     def get_target_q(self, next_states, dones, rewards):
         qtp1_pred = tf.reshape(self.critic_target([next_states, self.actor(next_states)]), (-1,))
 
-        returns =  (rewards + self.GAMMA * qtp1_pred) * (1 - dones)
+        returns =  rewards + (self.GAMMA * qtp1_pred) * (1 - dones)
 
         returns_mean = tf.math.reduce_mean(returns)
         returns_std = tf.math.reduce_std(returns)

@@ -1,10 +1,9 @@
 import os
 
 from stable_baselines import TD3, HER
-from stable_baselines.td3.policies import MlpPolicy as TD3Policy
 from datetime import datetime as dt
 
-from qfb_env import QFBGoalEnv
+from envs.qfb_env import QFBGoalEnv
 
 # import warnings
 # warnings.filterwarnings("ignore", category=FutureWarning)

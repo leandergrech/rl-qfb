@@ -1,13 +1,13 @@
 import os
-from collections import defaultdict
+from collections import defaultdict, deque
 import gym
 from gym.spaces import Box
 import numpy as np
 
 
 class QFBEnv(gym.Env):
-    rm_loc = os.path.join('metadata', 'LHC_TRM_B1.response')
-    calibration_loc = os.path.join('metadata', 'LHC_circuit.calibration')
+    rm_loc = os.path.join('../metadata', 'LHC_TRM_B1.response')
+    calibration_loc = os.path.join('../metadata', 'LHC_circuit.calibration')
     F_s = 11245.55
     Q_init_std_hz = 50
 
@@ -17,16 +17,20 @@ class QFBEnv(gym.Env):
     Q_init_std = Q_init_std_hz / Q_limit_hz
     Q_goal = Q_goal_hz / Q_limit_hz
 
-    act_norm = 10
+    act_norm = 200
+    obs_lim = 5
 
     # reward_accumulated_limit = -10
-    episode_length_limit = 20
+    episode_length_limit = 40
 
-    def __init__(self):
+    def __init__(self, noise_std=None):
+        self.noise_std = noise_std
         self._last_action = None
         self._current_state = None
         self._prev_state = None
         self._reward = None
+        self._reward_thresh = self.objective([QFBEnv.Q_goal]*2)
+        self._reward_deque = deque(maxlen=5)
 
         self.__full_rm = None
         self.__knobNames = None
@@ -68,10 +72,14 @@ class QFBEnv(gym.Env):
         return self._current_state
 
     def step(self, action, noise_std=0.1):
+        if self.noise_std is not None:
+            noise_std = self.noise_std
+
         self._last_action = action
 
+
         # Convert action to rm units and add noise
-        action += np.random.normal(noise_std)
+        action += np.random.normal(scale=noise_std, size=self.act_dimension)
         action_denorm = np.multiply(action, self.act_norm)
 
         # Calculate real trim
@@ -82,8 +90,10 @@ class QFBEnv(gym.Env):
         self._prev_state = self._current_state
         self._current_state = self._current_state + trim_state
 
-        done = self.is_done()
         self._reward = self.objective(self._current_state)
+        self._reward_deque.append(self._reward)
+
+        done = self.is_done()
 
         self.it += 1
 
@@ -92,17 +102,27 @@ class QFBEnv(gym.Env):
     def objective(self, state):
         # state_reward = -np.sqrt(np.mean(np.power(self._current_state, 2)))
         # action_reward = -np.sqrt(np.mean(np.power(self._last_action, 2))) / 5
-        state_reward = -np.mean(np.abs(state))
+        state_reward = -np.square(np.sum(np.abs(state)) + 1)
+        # for s in state:
+        #     if np.abs(s) > 1:
+        #         state_reward -= np.abs(s)
         # action_reward = -np.sum(np.abs(self._last_action)) / self.act_dimension
 
-        return state_reward #+ action_reward
+        return 1*state_reward #+ action_reward
 
     def is_done(self):
-        max_state = np.max(np.abs(self._current_state))
-        if max_state < self.Q_goal or max_state > 1.0:
+        # Reach goal
+        if np.mean(self._reward_deque) > self._reward_thresh or \
+                np.max(np.abs(self._current_state)) > QFBEnv.obs_lim:
             done = True
         else:
             done = False
+
+        # Reach maximum time limit
+        # if self.it < QFBEnv.episode_length_limit:
+        #     done = False
+        # else:
+        #     done = True
 
         return done
 
@@ -291,15 +311,16 @@ def test_actions():
     a_max = a_min = 0.0
 
     rewards = []
-    for i in range(10000):
+    for i in range(1000):
+
         # if i % 2 == 0:
-        a = env.get_optimal_action(o)
+        # a = env.get_optimal_action(o)
         # else:
-        #     a = env.action_space.sample()
+        a = env.action_space.sample()
 
         a_max = np.max(np.concatenate([a, [a_max]]))
         a_min = np.min(np.concatenate([a, [a_min]]))
-        o, r, d, _ = env.step(a)
+        o, r, d, _ = env.step(a, noise_std=0.0)
         rewards.append(r)
         state_line.set_ydata(o)
         action_line.set_ydata(a)
@@ -343,10 +364,39 @@ def average_optimal_episode_length():
         o = env.reset()
     print(f'Average episode length: {np.mean(solved_len)}')
 
+def average_optimal_episode_reward():
+    from tqdm import tqdm
+    import matplotlib.pyplot as plt
+
+    env = QFBEnv()
+    o = env.reset()
+
+    ep_rew = []
+    for ep in tqdm(range(1000)):
+        ep_rew.append(0.0)
+        for i in range(10000):
+            a = env.get_optimal_action(o)
+            o, r, d, _ = env.step(a, noise_std=0.0)
+
+            ep_rew[-1] += r
+
+            if d:
+                break
+        o = env.reset()
+
+    print(f'Optimal average episode reward: {np.mean(ep_rew)}')
+
+    fig, ax = plt.subplots()
+    ax.plot(ep_rew)
+    ax.set_ylabel('Total reward')
+    ax.set_xlabel('Episode')
+    ax.set_title(f'Average episode reward: {np.mean(ep_rew)}')
+    plt.show()
+
+
 
 if __name__ == '__main__':
     test_actions()
-
 
 
 

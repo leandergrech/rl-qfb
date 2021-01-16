@@ -75,7 +75,7 @@ class MyReplayBuffer(ReplayBuffer):
 
 
 def create_random_trajectories():
-    from qfb_env import QFBEnv
+    from envs.qfb_env import QFBEnv
 
     nb_steps = 1000
 
