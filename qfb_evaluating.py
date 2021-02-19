@@ -3,23 +3,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import tensorflow as tf
-from stable_baselines import TD3
+from stable_baselines import TD3, SAC
 
 from envs.qfb_env import QFBEnv
+from envs.qfb_env_carnival import QFBEnvCarnival
 
 
-def plot_individual(model_name):
-
-    model = TD3.load(os.path.join('models', model_name))
-
-    # env = HERGoalEnvWrapper(QFBGoalEnv())
-    env = QFBEnv(noise_std=0.0)
-    opt_env = QFBEnv(noise_std=0.0)
-
+def plot_individual(model, env, opt_env):
     n_obs = env.obs_dimension
     n_act = env.act_dimension
 
-    f, axes = plt.subplots(3, 2)
+    # f, axes = plt.subplots(3, 2)
     # fig, ((ax1, ax4), (ax2, ax5), (ax3, ax6)) = plt.subplots(3, 2, num=1)
     fig, ((ax1, ax4), (ax2, ax5)) = plt.subplots(2, 2, num=1)
     fig2, axr = plt.subplots(num=2)
@@ -36,7 +30,7 @@ def plot_individual(model_name):
     # ax2
     a_bars = ax2.bar(a_x, np.zeros(n_act))
     ax2.set_title('Action')
-    ax2.set_ylim((-1, 1))
+    ax2.set_ylim((-0.1, 0.1))
     # ax3
     rew_line, = axr.plot([], [], label='Agent')
     axr.set_xlabel('Steps')
@@ -51,7 +45,7 @@ def plot_individual(model_name):
     # ax5
     opt_a_bars = ax5.bar(a_x, np.zeros(n_act))
     ax5.set_title('Opt Action')
-    ax5.set_ylim((-1, 1))
+    ax5.set_ylim((-0.1, 0.1))
     # ax6
     opt_rew_line, = axr.plot([], [], label='Optimal')
     axr.axhline(env.objective([env.Q_goal]*2), color='g', ls='dashed', label='Reward threshold')
@@ -89,7 +83,7 @@ def plot_individual(model_name):
         opt_a_bars = ax5.bar(a_x, np.zeros(n_act))
 
         plt.draw()
-        plt.pause(2)
+        plt.pause(0.5)
 
         rewards = []
         opt_rewards = []
@@ -122,21 +116,14 @@ def plot_individual(model_name):
             if d:
                 break
 
-def plot_individual_mask_action():
-    model_name = 'TD3_QFB_011321_0058_1000000_steps.zip'
-    model = TD3.load(os.path.join('models', model_name))
-
-    # env = HERGoalEnvWrapper(QFBGoalEnv())
-    env = QFBEnv(noise_std=0.0)
-    opt_env = QFBEnv(noise_std=0.0)
-
+def plot_individual_mask_action(model, env, opt_env):
     n_obs = env.obs_dimension
     n_act = env.act_dimension
 
     action_mask = np.ones(n_act)
-    action_mask[5] = 0
+    # action_mask[5] = 0
     action_mask[10] = 0
-    action_mask[11] = 0
+    # action_mask[11] = 0
 
     f, axes = plt.subplots(3, 2)
     # fig, ((ax1, ax4), (ax2, ax5), (ax3, ax6)) = plt.subplots(3, 2, num=1)
@@ -239,9 +226,8 @@ def plot_individual_mask_action():
                 break
 
 
-def eval_set():
+def eval_set(model_prefix, env):
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
-    model_prefix = 'TD3_QFB_011321_0058'
     model_names = []
     models = []
     for item in os.listdir('models'):
@@ -249,14 +235,14 @@ def eval_set():
             model_names.append(item)
 
     model_names = model_names
-    env = QFBEnv(noise_std=0.0)
     print('Loading models')
     for i, name in enumerate(tqdm(sorted(model_names))):
-        if i % 1 == 0:
-            models.append(TD3.load(os.path.join('models', name), env))
+        chkpt = int(name.split('_')[-2])
+        if chkpt % int(1e3) == 0:
+            models.append(SAC.load(os.path.join('models', name), env))
     # models = tqdm([TD3.load(os.path.join('models', name), env) for name in sorted(model_names)])
 
-    nb_eval_eps = 100
+    nb_eval_eps = 10
     max_steps = 100
 
     ep_returns = np.zeros((len(models), nb_eval_eps))
@@ -281,7 +267,14 @@ def eval_set():
 
 
 if __name__ == '__main__':
-    # eval_set()
-    # plot_individual_mask_action()
-    # plot_individual('SAC_QFB_011321_1618_45000_steps.zip')
-    plot_individual('TD3_QFB_011321_0058_1000000_steps.zip')
+    # model = SAC.load(os.path.join('models', 'SAC_QFB_011321_1618_90000_steps.zip'))
+    model = TD3.load(os.path.join('models', 'TD3_QFB_011321_0058_90000_steps.zip'))
+
+    env_kwargs = dict(rm_loc=os.path.join('metadata', 'LHC_TRM_B1.response'),
+                      calibration_loc=os.path.join('metadata', 'LHC_circuit.calibration'))
+    env = QFBEnv(noise_std=0.0, **env_kwargs)
+    opt_env = QFBEnv(noise_std=0.0, **env_kwargs)
+
+    plot_individual(model, env, opt_env)
+    # model_prefix = 'SAC_QFB_011321_1618'
+    # eval_set(model_prefix, env)

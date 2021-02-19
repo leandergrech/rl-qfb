@@ -6,8 +6,8 @@ import numpy as np
 
 
 class QFBEnv(gym.Env):
-    rm_loc = os.path.join('../metadata', 'LHC_TRM_B1.response')
-    calibration_loc = os.path.join('../metadata', 'LHC_circuit.calibration')
+    rm_loc = os.path.join('..', 'metadata', 'LHC_TRM_B1.response')
+    calibration_loc = os.path.join('..', 'metadata', 'LHC_circuit.calibration')
     F_s = 11245.55
     Q_init_std_hz = 50
 
@@ -23,7 +23,11 @@ class QFBEnv(gym.Env):
     # reward_accumulated_limit = -10
     episode_length_limit = 40
 
-    def __init__(self, noise_std=None):
+    def __init__(self, noise_std=None, **kwargs):
+        if 'rm_loc' in kwargs:
+            self.rm_loc = kwargs['rm_loc']
+        if 'calibration_loc' in kwargs:
+            self.calibration_loc = kwargs['calibration_loc']
         self.noise_std = noise_std
         self._last_action = None
         self._current_state = None
@@ -102,7 +106,10 @@ class QFBEnv(gym.Env):
     def objective(self, state):
         # state_reward = -np.sqrt(np.mean(np.power(self._current_state, 2)))
         # action_reward = -np.sqrt(np.mean(np.power(self._last_action, 2))) / 5
-        state_reward = -np.square(np.sum(np.abs(state)) + 1)
+
+        ## state_reward = -np.square(np.sum(np.abs(state)) + 1)
+        state_reward = -np.square(np.sum(np.abs(state)))
+
         # for s in state:
         #     if np.abs(s) > 1:
         #         state_reward -= np.abs(s)
