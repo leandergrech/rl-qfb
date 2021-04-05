@@ -15,8 +15,12 @@ from envs.qfb_env import QFBEnv
 if __name__ == '__main__':
 	tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 	model_name = f"SAC_QFB_{dt.strftime(dt.now(), '%m%d%y_%H%M')}"
-	env = QFBEnv(noise_std=0.0)
-	eval_env = QFBEnv(noise_std=0.0)
+
+	env_kwargs = dict(rm_loc=os.path.join('metadata', 'LHC_TRM_B1.response'),
+					  calibration_loc=os.path.join('metadata', 'LHC_circuit.calibration'))
+
+	env = QFBEnv(noise_std=0.0, **env_kwargs)
+	eval_env = QFBEnv(noise_std=0.0, **env_kwargs)
 
 	# action_noise = NormalActionNoise(mean=0.0, sigma=0.05)
 	# model = TD3(TD3Policy, env, gamma=0.99, learning_rate=1e-4, buffer_size=100000, learning_starts=100,
@@ -36,7 +40,7 @@ if __name__ == '__main__':
 
 	callback_chkpt = CheckpointCallback(save_freq=1000, save_path='models', name_prefix=model_name)
 
-	nb_steps = int(1e6)
+	nb_steps = int(1e5)
 	# MyReplayBuffer.setup_storage(size=nb_steps, n_obs=env.obs_dimension, n_act=env.act_dimension)
 
 	model.learn(total_timesteps=nb_steps, log_interval=200, #replay_wrapper=MyReplayBuffer,

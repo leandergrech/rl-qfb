@@ -2,7 +2,7 @@ import numpy as np
 from .qfb_env import QFBEnv
 
 """
-This environment behaves like QFBEnv with the different that now there is 
+This environment behaves like QFBEnv with the difference that now there is 
 a chance that an action will become inactive (masked i.e. carnival) during 
 a random time in the environment, and will remain masked until the 
 environment is reset.
