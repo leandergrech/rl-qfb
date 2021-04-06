@@ -6,58 +6,65 @@ import numpy as np
 
 
 class QFBEnv(gym.Env):
-    rm_loc = os.path.join('..', 'metadata', 'LHC_TRM_B1.response')
-    calibration_loc = os.path.join('..', 'metadata', 'LHC_circuit.calibration')
+    # Constants
     F_s = 11245.55
-    Q_init_std_hz = 50
-
-    Q_goal_hz = 1
-    Q_limit_hz = 100
-
-    Q_init_std = Q_init_std_hz / Q_limit_hz
-    Q_goal = Q_goal_hz / Q_limit_hz
-
-    act_norm = 200
+    EPISODE_LENGTH_LIMIT = 40
     obs_lim = 5
 
-    # reward_accumulated_limit = -10
-    episode_length_limit = 40
+    # Data paths
+    RM_LOC = os.path.join('..', 'metadata', 'LHC_TRM_B1.response')
+    CALIBRATION_LOC = os.path.join('..', 'metadata', 'LHC_circuit.calibration')
+
+    # Controller boundaries in Hertz
+    Q_INIT_STD_HZ = 100
+    Q_GOAL_HZ = 1
+    Q_LIMIT_HZ = 200
+    Q_STEP_MAX_HZ = 0.01 * F_s
+
+    # Normalise boundaries
+    Q_init_std = Q_INIT_STD_HZ / Q_LIMIT_HZ
+    Q_goal = Q_GOAL_HZ / Q_LIMIT_HZ
+    Q_step_max = Q_STEP_MAX_HZ / Q_LIMIT_HZ
 
     def __init__(self, noise_std=None, **kwargs):
         if 'rm_loc' in kwargs:
-            self.rm_loc = kwargs['rm_loc']
+            self.RM_LOC = kwargs['rm_loc']
         if 'calibration_loc' in kwargs:
-            self.calibration_loc = kwargs['calibration_loc']
+            self.CALIBRATION_LOC = kwargs['calibration_loc']
         self.noise_std = noise_std
+
+        '''RL related parameters'''
+        self.it = 0
         self._last_action = None
-        self._current_state = None
-        self._prev_state = None
+        self.current_state = None
         self._reward = None
         self._reward_thresh = self.objective([QFBEnv.Q_goal]*2)
-        self._reward_deque = deque(maxlen=5)
+        self.reward_deque = deque(maxlen=5)
 
+        '''QFB relate parameters'''
         self.__full_rm = None
         self.__knobNames = None
         self.__knobNormal = None
-        self.__circuits = None
-        self.__calibrations = None
-        self.rm = None
+        self.circuits = None
         self.pi = None
-        self.quad_names = None
+        self.rm = None
+        self.calibrations = None
 
-        self.__get_rm()
-        self.__adjust_qrm()
-        self.__load_circuit_calibrations()
 
-        self.obs_dimension = self.rm.shape[1]
-        self.act_dimension = self.rm.shape[0]
+        '''Setting up environment'''
+        self.load_model()
+        self.load_circuit_calibrations()
 
-        self.observation_space = Box(low=-np.ones(self.obs_dimension), high=np.ones(self.obs_dimension), dtype=np.float)
-                                     # , shape=(self.obs_dimension,), dtype=np.float)
-        self.action_space = Box(low=-np.ones(self.act_dimension), high=np.ones(self.act_dimension), dtype=np.float)
-                                # , shape=(self.act_dimension,), dtype=np.float)
+        '''Setting up state and action spaces'''
+        self.obs_dimension = self.pi.shape[1]
+        self.act_dimension = self.pi.shape[0]
 
-        self.it = 0
+        self.observation_space = Box(low=-np.ones(self.obs_dimension),
+                                     high=np.ones(self.obs_dimension),
+                                     dtype=np.float)
+        self.action_space = Box(low=-np.ones(self.act_dimension),
+                                high=np.ones(self.act_dimension),
+                                dtype=np.float)
 
     def reset(self, init_state=None):
         o = self._reset(init_state)
@@ -66,42 +73,49 @@ class QFBEnv(gym.Env):
     def _reset(self, init_state=None):
         if init_state is None:
             # self._current_state = np.random.normal(0, self.Q_init_std, self.obs_dimension)
-            self._current_state = self.observation_space.sample()
+            init_state = np.random.normal(0, self.Q_init_std, size=self.obs_dimension)
+            self.current_state = np.clip(a=init_state, a_min=-1.0, a_max=1.0)
         else:
-            self._current_state = init_state
-        self._prev_state = self._current_state
+            self.current_state = init_state
         self._last_action = np.zeros(self.act_dimension)
         self.it = 0
 
-        return self._current_state
+        return self.current_state
 
-    def step(self, action, noise_std=0.1):
-        if self.noise_std is not None:
-            noise_std = self.noise_std
+    def step(self, action):#, noise_std=0.1):
+        # if self.noise_std is not None:
+        #     noise_std = self.noise_std
 
         self._last_action = action
 
 
         # Convert action to rm units and add noise
-        action += np.random.normal(scale=noise_std, size=self.act_dimension)
+        # action += np.random.normal(scale=noise_std, size=self.act_dimension)
         action_denorm = np.multiply(action, self.act_norm)
 
         # Calculate real trim
         trim_state = self.rm.T.dot(action_denorm)
         # Normalise trim obtained from action
-        trim_state = np.divide(trim_state, self.Q_limit_hz)
+        trim_state = np.divide(trim_state, self.Q_LIMIT_HZ)
 
-        self._prev_state = self._current_state
-        self._current_state = self._current_state + trim_state
+        self.current_state = self.current_state + trim_state
 
-        self._reward = self.objective(self._current_state)
-        self._reward_deque.append(self._reward)
+        self.reward = self.objective(self.current_state)
 
         done = self.is_done()
 
         self.it += 1
 
-        return self._current_state, self._reward, done, {}
+        return self.current_state, self.reward, done, {}
+
+    @property
+    def reward(self):
+        return self._reward
+
+    @reward.setter
+    def reward(self, r):
+        self._reward = r
+        self.reward_deque.append(r)
 
     def objective(self, state):
         # state_reward = -np.sqrt(np.mean(np.power(self._current_state, 2)))
@@ -119,8 +133,8 @@ class QFBEnv(gym.Env):
 
     def is_done(self):
         # Reach goal
-        if np.mean(self._reward_deque) > self._reward_thresh or \
-                np.max(np.abs(self._current_state)) > QFBEnv.obs_lim:
+        if np.mean(self.reward_deque) > self._reward_thresh or \
+                np.max(np.abs(self.current_state)) > QFBEnv.obs_lim:
             done = True
         else:
             done = False
@@ -134,55 +148,45 @@ class QFBEnv(gym.Env):
         return done
 
     def get_optimal_action(self, state):
-        state = np.multiply(state, self.Q_limit_hz)
-        action_optimal = -np.divide(self.pi.T.dot(state), self.act_norm)
-        action_optimal = np.clip(action_optimal, -1, 1)
+        state = np.multiply(state, self.Q_LIMIT_HZ)
+        action_optimal = -self.pi.dot(state)
+        for i, circ in enumerate(self.circuits):
+            action_optimal[i] = action_optimal[i] / self.calibrations[circ]['Irate']
+        # action_optimal = np.clip(action_optimal, -1, 1)
 
         return action_optimal
-
-    def get_state(self):
-        return self._current_state
-
-    def get_state_prev(self):
-        return self._prev_state
-
-    def get_action_prev(self):
-        return self._last_action
 
     def get_knob_names(self):
         assert self.__knobNames is not None, "Environment has not been reset"
         return self.__knobNames
 
-    def get_circuits(self):
-        assert self.__circuits is not None, "Environment has not been reset"
-        return self.__circuits
-
-    def __get_rm(self, reload=False):
+    def load_model(self, reload=False):
         if self.__full_rm is not None and not reload:
             return self.__full_rm
 
-        rm = []
-        circuits = []
-        reading_matrix = False
-        reading_circuits = False
+        '''Read matrix and circuit names'''
+        pseudo_inverse_full = np.zeros(shape=(0, 6)) # Stores full PI from file
+        circuits_full = np.array([])       # Stores all circuits from file
 
         def split_line_ret_floats(line):
             return [float(item) for item in line.split()]
 
-        with open(self.rm_loc, 'r') as f:
+        with open(self.RM_LOC, 'r') as f:
             contents = f.readlines()
+            reading_matrix = False
+            reading_circuits = False
             for line in contents:
-                if '# matrix' in line:
-                    reading_matrix = True
-                    reading_circuits = False
-                    continue
-                elif '# knobNames' in line:
+                if '# knobNames' in line:
                     line = line.split(':')[1]
                     self.__knobNames = [item.split('/')[1].lower() for item in line.split()]
                     continue
                 elif '# knobNormal' in line:
                     line = line.split(':')[1]
                     self.__knobNormal = split_line_ret_floats(line)
+                    continue
+                if '# matrix' in line:
+                    reading_matrix = True
+                    reading_circuits = False
                     continue
                 elif '# circuits' in line:
                     reading_circuits = True
@@ -194,53 +198,48 @@ class QFBEnv(gym.Env):
                         reading_matrix = False
                         continue
                     else:
-                        rm.append(split_line_ret_floats(line))
+                        pseudo_inverse_full = np.vstack([pseudo_inverse_full,
+                                                         split_line_ret_floats(line)])
                 elif reading_circuits:
                     if '#' in line:
                         reading_circuits = False
                         continue
                     else:
-                        circuits.append(line.lower().split('/')[0])
+                        circuits_full = np.append(circuits_full,
+                                                  line.lower().split('/')[0])
 
-        self.__full_rm = np.array(rm)
-        self.__circuits = np.array(circuits)
+        '''Sanitize the matrix and circuits for use on tune feedback only'''
+        circuits_tune = []
+        pseudo_inverse_tune = np.zeros(shape=(0, 2))
+        for i, (circ, pi_row) in enumerate(zip(circuits_full, pseudo_inverse_full[:, :2])):
+            if np.sum(np.abs(pi_row)) > 0.0:    # Only useful rows are non-empty in tune columns
+                circuits_tune.append(circ)
+                pseudo_inverse_tune = np.vstack([pseudo_inverse_tune, pi_row])
 
-        return self.__full_rm
+        self.circuits = circuits_tune
+        self.pi = pseudo_inverse_tune
+        self.rm = np.linalg.pinv(pseudo_inverse_tune)
 
-    def __adjust_qrm(self):
-        assert self.__full_rm is not None, "__get_rm() was not called, RM uninitialised"
-
-        trunc_rm = self.__full_rm[:, :2]
-
-        good_quads = []
-        good_idx = []
-        for i, (quad, rm_vals) in enumerate(zip(self.__circuits, trunc_rm)):
-            if np.sum(np.abs(rm_vals)) > 0.0:
-                good_quads.append(quad)
-                good_idx.append(i)
-
-        self.quad_names = good_quads
-        self.rm = self.__full_rm[good_idx, :2]
-        self.pi = np.linalg.pinv(self.rm)
-
-    def __load_circuit_calibrations(self):
+    def load_circuit_calibrations(self):
         """
-        Load circuit calibration data. Used to convert uRads<-->Amperes
+        Load circuit calibration data. Used to obtain maximum allowed current change
         :param circuit_calibration_file:
         :return: {device_name:{"circuit_name":..., "bnom":..., etc.}}
         """
-        calib_file = os.path.abspath(self.calibration_loc)
-
-        self._calibrations = defaultdict(dict)
+        calib_file = os.path.abspath(self.CALIBRATION_LOC)
+        calibrations = defaultdict(dict)
 
         with open(calib_file) as f:
             keywords = None
             # Read and parse file
+            parser = {}
+            keywords = None
             for line in f:
                 if '#' in line:
                     # KEYWORDS --> Occurrence of # means the keywords are on this line
-                    keywords = [k for k in line.split() if ('|' not in k) and ('#' not in k)][1:]
-                    parser = {}
+                    keywords = [k for k in line.split() if ('|' not in k) and
+                                                            ('#' not in k) and
+                                                            ('circuit_name' not in k)]
                     for k in keywords:
                         if 'name' in k:
                             parser[k] = lambda x: x.strip('"').lower()
@@ -253,14 +252,17 @@ class QFBEnv(gym.Env):
                         raise Exception("Keywords were not found at the top of file.")
 
                     split_line = np.array([item for item in line.split() if '|' not in item])
-                    cod_name = split_line[1].lower()
-                    split_line = split_line[1:]
+                    circ = split_line[1].lower()
+
+                    if circ not in self.circuits:
+                        continue
+                    split_line = np.concatenate([[split_line[0]], split_line[2:]])
 
                     for i, (k, item) in enumerate(zip(keywords, split_line)):
-                        self._calibrations[cod_name][k] = parser[k](item)
+                        calibrations[circ][k] = parser[k](item)
 
-    def get_calibrations(self):
-        return self._calibrations
+        self.calibrations = calibrations
+
 
 
 class QFBGoalEnv(QFBEnv):
@@ -283,7 +285,7 @@ class QFBGoalEnv(QFBEnv):
     def compute_reward(self, achieved_goal, desired_goal, info):
         difference_objective = self.objective(achieved_goal - desired_goal)
 
-        if np.abs(difference_objective) <= self.Q_goal_hz / (self.F_s * self.obs_norm):
+        if np.abs(difference_objective) <= self.Q_GOAL_HZ / (self.F_s * self.obs_norm):
             return 0.0
         else:
             return -1.0
@@ -401,9 +403,17 @@ def average_optimal_episode_reward():
     plt.show()
 
 
-
+import matplotlib.pyplot as plt
 if __name__ == '__main__':
-    test_actions()
+    env = QFBEnv()
+    o = env.reset()
+    a = env.action_space.sample()
+    o1 = env.step(a)[0]
+
+    fig, ax = plt.subplots()
+    ax.plot(o)
+    ax.plot(o1)
+    plt.show()
 
 
 

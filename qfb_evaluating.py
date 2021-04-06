@@ -7,6 +7,7 @@ import tensorflow as tf
 from stable_baselines import TD3, SAC
 
 from envs.qfb_env import QFBEnv
+from envs.qfb_nonlinear_env import QFBNLEnv
 from envs.qfb_env_carnival import QFBEnvCarnival
 
 
@@ -546,6 +547,134 @@ def save_agent_vs_optimal_gif(model, env, opt_env, model_name, title_name):
     anim.save(save_path)
     print('Saved to: ', save_path)
 
+def test_qfbnlen():
+    kwargs = {'rm_loc': os.path.join('metadata', 'LHC_TRM_B1.response'),
+              'calibration_loc': os.path.join('metadata', 'LHC_circuit.calibration')}
+    env1 = QFBNLEnv(**kwargs)
+    env2 = QFBNLEnv(**kwargs)
+
+    n_obs = env1.obs_dimension
+    n_act = env1.act_dimension
+
+    fig = plt.figure(figsize=(10, 5), num=1)
+
+    gs = fig.add_gridspec(2, 4)
+    ax1 = fig.add_subplot(gs[0, 0])
+    ax4 = fig.add_subplot(gs[0, 1])
+    ax2 = fig.add_subplot(gs[1, 0])
+    ax5 = fig.add_subplot(gs[1, 1])
+    axr = fig.add_subplot(gs[:, 2:])
+
+    o_x = range(n_obs)
+    a_x = range(n_act)
+
+    # ax1
+    o1_bars = ax1.bar(o_x, np.zeros(n_obs))
+    ax1.axhline(0.0, color='k', ls='dashed')
+    ax1.axhline(env1.Q_goal, color='g', ls='dashed')
+    ax1.axhline(-env1.Q_goal, color='g', ls='dashed')
+    ax1.set_title('State')
+    ax1.set_ylim((-0.2, 0.2))
+    # ax2
+    a1_bars = ax2.bar(a_x, np.zeros(n_act))
+    ax2.set_title('Action')
+    ax2.set_ylim((-0.1, 0.1))
+    # ax3
+    rew_line, = axr.plot([], [], label='Agent')
+    axr.set_xlabel('Steps')
+    axr.set_ylabel('Reward')
+    # ax4
+    o2_bars = ax4.bar(o_x, np.zeros(n_obs))
+    ax4.axhline(0.0, color='k', ls='dashed')
+    ax4.axhline(env2.Q_goal, color='g', ls='dashed')
+    ax4.axhline(-env2.Q_goal, color='g', ls='dashed')
+    ax4.set_title('Opt State')
+    ax4.set_ylim((-0.2, 0.2))
+    # ax5
+    a2_bars = ax5.bar(a_x, np.zeros(n_act))
+    ax5.set_title('Opt Action')
+    ax5.set_ylim((-0.1, 0.1))
+    # ax6
+    opt_rew_line, = axr.plot([], [], label='Optimal')
+    axr.axhline(env1.objective([env1.Q_goal]*2), color='g', ls='dashed', label='Reward threshold')
+    axr.set_title('Opt Reward')
+    axr.legend(loc='lower right')
+
+    fig.tight_layout()
+
+    def update_bars(o, a, opo, opa):
+        nonlocal o1_bars, a1_bars, o2_bars, a2_bars, o_x, a_x
+        for bar in (o1_bars, a1_bars, o2_bars, a2_bars):
+            bar.remove()
+
+        o1_bars = ax1.bar(o_x, o, color='b')
+        a1_bars = ax2.bar(a_x, a, color='r')
+        o2_bars = ax4.bar(o_x, opo, color='b')
+        a2_bars = ax5.bar(a_x, opa, color='r')
+
+
+    plt.ion()
+
+    n_episodes = 10
+    max_steps = 50
+    for ep in range(n_episodes):
+        o = env1.reset()
+        opt_o = o.copy()
+        env2.reset(opt_o)
+
+        o1_bars.remove()
+        a1_bars.remove()
+        o1_bars = ax1.bar(o_x, o, color='b')
+        a1_bars = ax2.bar(a_x, np.zeros(n_act))
+
+        o2_bars.remove()
+        a2_bars.remove()
+        o2_bars = ax4.bar(o_x, opt_o, color='b')
+        a2_bars = ax5.bar(a_x, np.zeros(n_act))
+
+        plt.draw()
+        plt.pause(0.5)
+
+        rewards = []
+        opt_rewards = []
+        for step in range(max_steps):
+            # Put some obs noise to test agent
+            # Find limiting noise
+            a = env1.pi_controller_action()
+            o, r, d, _ = env1.step(a)
+            rewards.append(r)
+
+            opt_a = env2.get_optimal_action(opt_o)
+            opt_o, opt_r, *_ = env2.step(opt_a)
+            opt_rewards.append(opt_r)
+
+            fig.suptitle(f'Ep #{ep} - Step #{step} - Done {d}')
+            # fig2.suptitle(f'Ep #{ep} - Step #{step} - Done {d}')
+            update_bars(o, a, opt_o, opt_a)
+
+            rew_line.set_data(range(step + 1), rewards)
+            opt_rew_line.set_data(range(step + 1), opt_rewards)
+            axr.set_ylim((min(np.concatenate([rewards, opt_rewards])), 0))
+            axr.set_xlim((0, step+1))
+
+            if step < max_steps/3:
+                ax1.set_ylim((-0.7, 0.7))
+                ax4.set_ylim((-0.7, 0.7))
+            elif step < 2*max_steps/3:
+                ax1.set_ylim((-0.2, 0.2))
+                ax4.set_ylim((-0.2, 0.2))
+            else:
+                ax1.set_ylim((-0.08, 0.08))
+                ax4.set_ylim((-0.08, 0.08))
+
+            if plt.fignum_exists(1):
+                plt.draw()
+                plt.pause(0.1)
+            else:
+                exit()
+
+            if d:
+                break
 
 def main():
 
@@ -574,4 +703,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    test_qfbnlen()
