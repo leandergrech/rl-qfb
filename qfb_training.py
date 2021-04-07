@@ -6,7 +6,7 @@ from stable_baselines.sac.policies import MlpPolicy as SACPolicy
 from stable_baselines.common.callbacks import CheckpointCallback
 from datetime import datetime as dt
 
-from envs.qfb_env import QFBEnv
+from envs.qfb_nonlinear_env import QFBNLEnv
 
 # import warnings
 # warnings.filterwarnings("ignore", category=FutureWarning)
@@ -14,13 +14,13 @@ from envs.qfb_env import QFBEnv
 
 if __name__ == '__main__':
 	tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
-	model_name = f"SAC_QFB_{dt.strftime(dt.now(), '%m%d%y_%H%M')}"
+	model_name = f"SAC_QFBNL_{dt.strftime(dt.now(), '%m%d%y_%H%M')}"
 
 	env_kwargs = dict(rm_loc=os.path.join('metadata', 'LHC_TRM_B1.response'),
 					  calibration_loc=os.path.join('metadata', 'LHC_circuit.calibration'))
 
-	env = QFBEnv(noise_std=0.0, **env_kwargs)
-	eval_env = QFBEnv(noise_std=0.0, **env_kwargs)
+	env = QFBNLEnv(**env_kwargs)
+	eval_env = QFBNLEnv(**env_kwargs)
 
 	# action_noise = NormalActionNoise(mean=0.0, sigma=0.05)
 	# model = TD3(TD3Policy, env, gamma=0.99, learning_rate=1e-4, buffer_size=100000, learning_starts=100,

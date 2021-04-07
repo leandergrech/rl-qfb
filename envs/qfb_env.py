@@ -16,10 +16,11 @@ class QFBEnv(gym.Env):
     CALIBRATION_LOC = os.path.join('..', 'metadata', 'LHC_circuit.calibration')
 
     # Controller boundaries in Hertz
-    Q_INIT_STD_HZ = 100
+    Q_INIT_STD_HZ = 150
     Q_GOAL_HZ = 1
     Q_LIMIT_HZ = 200
     Q_STEP_MAX_HZ = 0.01 * F_s
+    T_s = 0.08
 
     # Normalise boundaries
     Q_init_std = Q_INIT_STD_HZ / Q_LIMIT_HZ
@@ -32,14 +33,6 @@ class QFBEnv(gym.Env):
         if 'calibration_loc' in kwargs:
             self.CALIBRATION_LOC = kwargs['calibration_loc']
         self.noise_std = noise_std
-
-        '''RL related parameters'''
-        self.it = 0
-        self._last_action = None
-        self.current_state = None
-        self._reward = None
-        self._reward_thresh = self.objective([QFBEnv.Q_goal]*2)
-        self.reward_deque = deque(maxlen=5)
 
         '''QFB relate parameters'''
         self.__full_rm = None
@@ -66,45 +59,42 @@ class QFBEnv(gym.Env):
                                 high=np.ones(self.act_dimension),
                                 dtype=np.float)
 
-    def reset(self, init_state=None):
-        o = self._reset(init_state)
-        return o
+        '''RL related parameters'''
+        self.current_state = None
+        self._reward = None
+        self._reward_thresh = self.objective([QFBEnv.Q_goal] * self.obs_dimension)
+        self.reward_deque = deque(maxlen=5)
 
-    def _reset(self, init_state=None):
+    def reset(self, init_state=None):
         if init_state is None:
-            # self._current_state = np.random.normal(0, self.Q_init_std, self.obs_dimension)
             init_state = np.random.normal(0, self.Q_init_std, size=self.obs_dimension)
             self.current_state = np.clip(a=init_state, a_min=-1.0, a_max=1.0)
         else:
             self.current_state = init_state
-        self._last_action = np.zeros(self.act_dimension)
-        self.it = 0
 
         return self.current_state
 
-    def step(self, action):#, noise_std=0.1):
-        # if self.noise_std is not None:
-        #     noise_std = self.noise_std
+    def step(self, action):
+        '''
+        :param action:
+        :return:
+        '''
+        '''Calculate delta current from normalised action passed'''
+        action_currents = np.array([a * self.calibrations[circ]['Irate'] * self.T_s for a, circ in zip(action, self.circuits)])
 
-        self._last_action = action
-
-
-        # Convert action to rm units and add noise
-        # action += np.random.normal(scale=noise_std, size=self.act_dimension)
-        action_denorm = np.multiply(action, self.act_norm)
-
-        # Calculate real trim
-        trim_state = self.rm.T.dot(action_denorm)
-        # Normalise trim obtained from action
+        '''Get effective tune shift
+            Convert from [-Q_LIMIT_HZ,Q_LIMIT_HZ] -> [-1,1]'''
+        trim_state = self.rm.dot(action_currents)
         trim_state = np.divide(trim_state, self.Q_LIMIT_HZ)
 
-        self.current_state = self.current_state + trim_state
+        '''Update current state'''
+        self.current_state += trim_state
 
+        '''Get reward'''
         self.reward = self.objective(self.current_state)
 
+        '''Get done signal'''
         done = self.is_done()
-
-        self.it += 1
 
         return self.current_state, self.reward, done, {}
 
@@ -118,18 +108,9 @@ class QFBEnv(gym.Env):
         self.reward_deque.append(r)
 
     def objective(self, state):
-        # state_reward = -np.sqrt(np.mean(np.power(self._current_state, 2)))
-        # action_reward = -np.sqrt(np.mean(np.power(self._last_action, 2))) / 5
-
-        ## state_reward = -np.square(np.sum(np.abs(state)) + 1)
         state_reward = -np.square(np.sum(np.abs(state)))
 
-        # for s in state:
-        #     if np.abs(s) > 1:
-        #         state_reward -= np.abs(s)
-        # action_reward = -np.sum(np.abs(self._last_action)) / self.act_dimension
-
-        return 1*state_reward #+ action_reward
+        return state_reward
 
     def is_done(self):
         # Reach goal
@@ -139,20 +120,13 @@ class QFBEnv(gym.Env):
         else:
             done = False
 
-        # Reach maximum time limit
-        # if self.it < QFBEnv.episode_length_limit:
-        #     done = False
-        # else:
-        #     done = True
-
         return done
 
     def get_optimal_action(self, state):
         state = np.multiply(state, self.Q_LIMIT_HZ)
         action_optimal = -self.pi.dot(state)
         for i, circ in enumerate(self.circuits):
-            action_optimal[i] = action_optimal[i] / self.calibrations[circ]['Irate']
-        # action_optimal = np.clip(action_optimal, -1, 1)
+            action_optimal[i] = action_optimal[i] / (self.calibrations[circ]['Irate'] * self.T_s)
 
         return action_optimal
 
