@@ -13,14 +13,17 @@ class QFBNLEnv(QFBEnv):
     Large deviations of the tune between adjacent steps are also not permitted with a limit of 0.01*F_s ~ 112.5 Hz
     A PI controller is also implemented, where its response can be retured per step.
     """
-    def __init__(self, noise_std=0.0, **kwargs):
-        super(QFBNLEnv, self).__init__(noise_std, **kwargs)
+    def __init__(self, perturb_state=True, **kwargs):
+        super(QFBNLEnv, self).__init__(noise_std=0.0, **kwargs)
         # PI controller parameters
         PID_K0 = 1.0
         PID_TAU = 0.1 / (2 * np.pi)
         PID_ALPHA = 5 / (2 * np.pi)
         self.PID_Kp = (PID_K0 * PID_TAU) / PID_ALPHA
         self.PID_Ki = (PID_K0 / PID_ALPHA) * QFBNLEnv.T_s
+
+        # Perturbation parameters
+        self._perturb = perturb_state
         self.freqs = np.arange(2400, 2400 + bs.delta_f * 100 + 1, bs.delta_f)
         self.harmonic_freqs = np.arange(self.freqs[0], self.freqs[-1], 50.0)
         self.omegas = self.freqs * 2 * np.pi
@@ -78,7 +81,8 @@ class QFBNLEnv(QFBEnv):
         self.current_state += trim_tunes
 
         '''Simulate state perturbation due to effect of 50 Hz harmonics'''
-        self.current_state = np.array([self.perturb_state(o) for o in self.current_state])
+        if self._perturb:
+            self.current_state = np.array([self.perturb_state(o) for o in self.current_state])
 
         self.reward = self.objective(self.current_state)
         done = self.is_done()
@@ -87,7 +91,6 @@ class QFBNLEnv(QFBEnv):
 
     def pi_controller_action(self):
         """
-
         :return:
         """
         '''Convert from [-1,1] to [-Q_LIMIT_HZ,Q_LIMIT_HZ]'''
@@ -195,8 +198,72 @@ def comparing_qfbenv_qfbnlenv_noisy_tunes():
 
     plt.show()
 
+def test_quad_malfunction():
+    from collections import defaultdict
+    import matplotlib.pyplot as plt
+
+    envgood = QFBNLEnv(perturb_state=True)
+    envbad = QFBNLEnv(perturb_state=True)
+    init_o = np.array([0.5, 0.5])
+    envgood.reset(init_o.copy())
+    envbad.reset(init_o.copy())
+
+    print(envbad.rm.dot(envbad.pi))
+    print(envgood.rm.dot(envgood.pi))
+
+    observations = dict(good = np.zeros(shape=(0, envgood.obs_dimension)),
+             bad = np.zeros(shape=(0, envgood.obs_dimension)))
+    actions = dict(good=np.zeros(shape=(0, envgood.act_dimension)),
+             bad=np.zeros(shape=(0, envgood.act_dimension)))
+    rewards = defaultdict(list)
+    nb_steps = 100
+    for i in range(nb_steps):
+        for e, k in zip((envgood, envbad), ('good', 'bad')):
+            a = e.pi_controller_action()
+            if k is 'bad':
+                a[2:6] = 0.0
+            o, r, *_ = e.step(a)
+            observations[k] = np.vstack([observations[k], o])
+            actions[k] = np.vstack([actions[k], a])
+            if i == 0:
+                prev_cum = 0.0
+            else:
+                prev_cum = rewards[k][-1]
+            rewards[k].append(r + prev_cum)
+
+    fig = plt.figure()
+    gs = fig.add_gridspec(2, 4)
+    ax1 = fig.add_subplot(gs[0, 0])
+    ax2 = fig.add_subplot(gs[1, 0])
+    ax3 = fig.add_subplot(gs[0, 1])
+    ax4 = fig.add_subplot(gs[1, 1])
+    axr = fig.add_subplot(gs[:, 2:])
+
+    ax1.set_title('Good env')
+    ax3.set_title('Bad env')
+
+    ax1.set_title('Good - obs')
+    ax1.plot(observations['good'])#, color='b')
+
+    ax2.set_title('Good - act')
+    ax2.plot(actions['good'])#, color='r')
+
+    ax3.set_title('Bad - obs')
+    ax3.plot(observations['bad'])#, color='b')
+
+    ax4.set_title('Bad - act')
+    ax4.plot(actions['bad'])#, color='r')
+
+    axr.set_title('Cumulative rewards')
+    axr.axhline(0.0, color='k', label='Convergence')
+    axr.plot(rewards['good'], color='b', label='good env')
+    axr.plot(rewards['bad'], color='r', label='bad env')
+    axr.legend()
+
+    plt.show()
+
 if __name__ == '__main__':
-    comparing_qfbenv_qfbnlenv_noisy_tunes()
+    test_quad_malfunction()
 
 
 

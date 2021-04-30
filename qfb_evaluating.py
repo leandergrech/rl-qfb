@@ -15,52 +15,54 @@ def plot_individual(model, env, opt_env):
     n_obs = env.obs_dimension
     n_act = env.act_dimension
 
+    '''Setup axes on figure'''
+    plt.ion()
     fig = plt.figure(figsize=(10, 5), num=1)
-
     gs = fig.add_gridspec(2, 4)
     ax1 = fig.add_subplot(gs[0, 0])
-    ax4 = fig.add_subplot(gs[0, 1])
     ax2 = fig.add_subplot(gs[1, 0])
-    ax5 = fig.add_subplot(gs[1, 1])
+    ax3 = fig.add_subplot(gs[0, 1])
+    ax4 = fig.add_subplot(gs[1, 1])
     axr = fig.add_subplot(gs[:, 2:])
 
     o_x = range(n_obs)
     a_x = range(n_act)
 
+    '''Initialise axes'''
     # ax1
     o_bars = ax1.bar(o_x, np.zeros(n_obs))
     ax1.axhline(0.0, color='k', ls='dashed')
     ax1.axhline(env.Q_goal, color='g', ls='dashed')
     ax1.axhline(-env.Q_goal, color='g', ls='dashed')
-    ax1.set_title('State')
-    ax1.set_ylim((-0.2, 0.2))
+    ax1.set_title('State - Model')
+    # ax1.set_ylim((-0.2, 0.2))
     # ax2
     a_bars = ax2.bar(a_x, np.zeros(n_act))
-    ax2.set_title('Action')
-    ax2.set_ylim((-0.1, 0.1))
+    ax2.set_title('Action - Model')
+    # ax2.set_ylim((-0.1, 0.1))
     # ax3
+    opt_o_bars = ax3.bar(o_x, np.zeros(n_obs))
+    ax3.axhline(0.0, color='k', ls='dashed')
+    ax3.axhline(env.Q_goal, color='g', ls='dashed')
+    ax3.axhline(-env.Q_goal, color='g', ls='dashed')
+    ax3.set_title('State - PI')
+    # ax3.set_ylim((-0.2, 0.2))
+    # ax4
+    opt_a_bars = ax4.bar(a_x, np.zeros(n_act))
+    ax4.set_title('Action - PI')
+    # ax4.set_ylim((-0.1, 0.1))
+    # axr
     rew_line, = axr.plot([], [], label='Agent')
     axr.set_xlabel('Steps')
     axr.set_ylabel('Reward')
-    # ax4
-    opt_o_bars = ax4.bar(o_x, np.zeros(n_obs))
-    ax4.axhline(0.0, color='k', ls='dashed')
-    ax4.axhline(env.Q_goal, color='g', ls='dashed')
-    ax4.axhline(-env.Q_goal, color='g', ls='dashed')
-    ax4.set_title('Opt State')
-    ax4.set_ylim((-0.2, 0.2))
-    # ax5
-    opt_a_bars = ax5.bar(a_x, np.zeros(n_act))
-    ax5.set_title('Opt Action')
-    ax5.set_ylim((-0.1, 0.1))
-    # ax6
-    opt_rew_line, = axr.plot([], [], label='Optimal')
+    opt_rew_line, = axr.plot([], [], label='PI')
     axr.axhline(env.objective([env.Q_goal]*2), color='g', ls='dashed', label='Reward threshold')
     axr.set_title('Opt Reward')
     axr.legend(loc='lower right')
 
     fig.tight_layout()
 
+    '''Helper method to update bar plots'''
     def update_bars(o, a, opo, opa):
         nonlocal o_bars, a_bars, opt_o_bars, opt_a_bars, o_x, a_x
         for bar in (o_bars, a_bars, opt_o_bars, opt_a_bars):
@@ -68,12 +70,12 @@ def plot_individual(model, env, opt_env):
 
         o_bars = ax1.bar(o_x, o, color='b')
         a_bars = ax2.bar(a_x, a, color='r')
-        opt_o_bars = ax4.bar(o_x, opo, color='b')
-        opt_a_bars = ax5.bar(a_x, opa, color='r')
+        opt_o_bars = ax3.bar(o_x, opo, color='b')
+        opt_a_bars = ax4.bar(a_x, opa, color='r')
 
-
-    plt.ion()
-
+    '''Start stepping through environments
+    env uses the model
+    opt_env uses optimal_action/pi_controller_action'''
     n_episodes = 10
     max_steps = 50
     for ep in range(n_episodes):
@@ -88,22 +90,23 @@ def plot_individual(model, env, opt_env):
 
         opt_o_bars.remove()
         opt_a_bars.remove()
-        opt_o_bars = ax4.bar(o_x, opt_o, color='b')
-        opt_a_bars = ax5.bar(a_x, np.zeros(n_act))
+        opt_o_bars = ax3.bar(o_x, opt_o, color='b')
+        opt_a_bars = ax4.bar(a_x, np.zeros(n_act))
 
         plt.draw()
-        plt.pause(0.5)
+        plt.pause(1.5)
 
         rewards = []
         opt_rewards = []
         for step in range(max_steps):
             # Put some obs noise to test agent
             # Find limiting noise
-            a = model.predict(o)[0] * 0.1
-            o, r, d, _ = env.step(a, noise_std=0.0)
+            a = model.predict(o)[0]
+            o, r, d, _ = env.step(a)
             rewards.append(r)
 
-            opt_a = opt_env.get_optimal_action(opt_o) * 0.1
+            # opt_a = opt_env.get_optimal_action(opt_o) * 0.1
+            opt_a = opt_env.pi_controller_action()
             opt_o, opt_r, *_ = opt_env.step(opt_a)
             opt_rewards.append(opt_r)
 
@@ -116,15 +119,16 @@ def plot_individual(model, env, opt_env):
             axr.set_ylim((min(np.concatenate([rewards, opt_rewards])), 0))
             axr.set_xlim((0, step+1))
 
-            if step < max_steps/3:
-                ax1.set_ylim((-0.7, 0.7))
-                ax4.set_ylim((-0.7, 0.7))
-            elif step < 2*max_steps/3:
-                ax1.set_ylim((-0.2, 0.2))
-                ax4.set_ylim((-0.2, 0.2))
-            else:
-                ax1.set_ylim((-0.08, 0.08))
-                ax4.set_ylim((-0.08, 0.08))
+            # Clip limits to next 0.2 step
+            maxabso = max(abs(np.concatenate([o, opt_o]).flatten()))
+            ylimo = np.ceil(maxabso / 0.2) * 0.2 + 0.1
+            ax1.set_ylim((-ylimo, ylimo))
+            ax3.set_ylim((-ylimo, ylimo))
+
+            maxabsa = max(abs(np.concatenate([a, opt_a]).flatten()))
+            ylima = np.ceil(maxabsa / 0.2) * 0.2 + 0.1
+            ax2.set_ylim((-ylima, ylima))
+            ax4.set_ylim((-ylima, ylima))
 
             if plt.fignum_exists(1):
                 plt.draw()
@@ -281,36 +285,41 @@ def eval_set(model_prefix, env):
     ax.set_xlabel('Model')
     plt.show()
 
-def plot_rewards_statistics1(models, envs, opt_envs, model_names, colors, noise):
-    assert len(models) == len(envs) == len(opt_envs), 'You must provide two environments, one for agent and the other for the optimal, for every model'
+def plot_rewards_statistics1(models, envs, oenvs, model_names, colors):
+    assert len(models) == len(envs) == len(oenvs), 'You must provide two environments, one for agent and the other for the optimal, for every model'
     n_models = len(models)
-    n_episodes = 20
-    n_steps = 50
+    n_episodes = 5
+    n_steps = 30
 
     rewards = np.zeros(shape=(n_models, n_episodes, n_steps))
     opt_rewards = np.zeros(shape=(n_models, n_episodes, n_steps))
-    for ep in pbar(range(n_episodes)):
-        o = np.zeros(shape=(n_models, opt_envs[0].obs_dimension))
-        opt_o = np.zeros(shape=(n_models, opt_envs[0].obs_dimension))
-        for i, env in enumerate(envs):
-            o[i] = env.reset()
-            opt_o[i] = o[i].copy()
-            opt_envs[i].reset(opt_o[i])
 
-        for step in range(n_steps):
-            for i, (model, env, opt_env) in enumerate(zip(models, envs, opt_envs)):
-                a = model.predict(o[i])[0] * 0.1
-                o[i], rewards[i, ep, step], d, _ = env.step(a, noise_std=0.0)
+    for i, (model, env, oenv) in enumerate(zip(models, envs, oenvs)):
+        for j in range(n_episodes):
+            o = env.reset()
+            oo = o.copy()
+            oenv.reset(oo)
+            for k in range(n_steps):
+                a = model.predict(o)[0]
+                o, r, *_ = env.step(a)
+                if k == 0:
+                    prev_cum = 0.0
+                else:
+                    prev_cum = rewards[i, j, k - 1]
+                rewards[i, j, k] = prev_cum + abs(r)
 
-                opt_a = opt_env.get_optimal_action(opt_o[i]) * 0.1
-                opt_o[i], opt_rewards[i, ep, step], *_ = opt_env.step(opt_a)
+                oa = oenv.pi_controller_action()
+                oo, orr, *_ = oenv.step(oa)
+                if k == 0:
+                    prev_cum = 0.0
+                else:
+                    prev_cum = opt_rewards[i, j, k - 1]
+                opt_rewards[i, j, k] = prev_cum + abs(orr)
 
+    plt.ioff()
     fig, ax = plt.subplots()
 
-    for rr, orr, c in zip(rewards, opt_rewards, colors):
-        for r, o_r in zip(rr, orr):
-            ax.plot(r, lw=1, alpha=0.8, color=c)
-            ax.plot(o_r, lw=1, alpha=0.8, color=colors[-1])
+    # ax.axhline(envs[0].Q_goal, color='k', label='Threshold')
 
     rewards_std = np.std(rewards, axis=1)
     rewards_mean = np.mean(rewards, axis=1)
@@ -319,22 +328,17 @@ def plot_rewards_statistics1(models, envs, opt_envs, model_names, colors, noise)
 
     x_range = range(n_steps)
     for reward_mean, reward_std, model_name, c in zip(rewards_mean, rewards_std, model_names, colors):
-        ax.plot(x_range, reward_mean, c, label=f'{model_name} rewards')
+        ax.plot(x_range, reward_mean, c, label=f'{model_name}')
         ax.fill_between(x_range, reward_mean - reward_std, reward_mean + reward_std, color=c, alpha=0.4)
 
-    ax.plot(x_range, opt_rewards_mean, 'b', label='Optimal rewards')
-
+    ax.plot(x_range, opt_rewards_mean, colors[-1], label='PI controller')
     ax.fill_between(x_range, opt_rewards_mean - opt_rewards_std, opt_rewards_mean + opt_rewards_std, color=colors[-1], alpha=0.4)
-
-    # ax.set_xlim((0, 10))
 
     ax.legend(loc='lower right')
     ax.set_xlabel('Steps')
-    ax.set_ylabel('Reward')
+    ax.set_ylabel('Cumulative Penalty')
 
-    save_path = os.path.join('results', f'models-vs-optimal_noise-{noise}_neps-{n_episodes}_nsteps-{n_steps}.pdf')
-    fig.savefig(save_path)
-    print(f'Saved statistics to: {save_path}')
+    plt.show()
 
 def plot_rewards_statistics2(models, envs, opt_envs, model_names, colors, noise):
     assert len(models) == len(envs) == len(opt_envs), 'You must provide two environments, one for agent and the other for the optimal, for every model'
@@ -679,28 +683,27 @@ def test_qfbnlen():
 def main():
 
     # for noise in [0.5, 0.25, 0.1, 0.05, 0.01]:
-    noise = 0.1
 
-    model_names = ['SAC_QFB_030321_2058_100000_steps.zip']
-        # 'SAC_QFB_011321_1618_90000_steps.zip',]
-                   # 'TD3_QFB_011321_0058_90000_steps.zip']
-    title_names = [f'SAC QFB steps=90000 action-noise={noise*100.0}%']
-    model_types = [SAC, TD3]
-    models = []
-    for i, (model_name, model_type) in enumerate(zip(model_names, model_types)):
-        models.append(model_type.load(os.path.join('models', model_name)))
+    for model_steps in pbar(np.arange(1000, 100001, 1000)):
+        model_prefix = 'TD3_QFBNL_042921_2240'
+        # model_steps = 100000
+        model_names = [f'{model_prefix}_{model_steps}_steps.zip']
+            # 'SAC_QFB_011321_1618_90000_steps.zip',]
+                       # 'TD3_QFB_011321_0058_90000_steps.zip']
+        title_names = [f"{model_prefix.split('_')[0]} QFBNL steps={model_steps}"]
+        model_types = [TD3]
+        models = []
+        for i, (model_name, model_type) in enumerate(zip(model_names, model_types)):
+            models.append(model_type.load(os.path.join('models', model_prefix, model_name)))
 
-    env_kwargs = dict(rm_loc=os.path.join('metadata', 'LHC_TRM_B1.response'),
-                      calibration_loc=os.path.join('metadata', 'LHC_circuit.calibration'))
-    envs = [QFBEnv(noise_std=noise, **env_kwargs) for _ in range(len(model_names))]
-    opt_envs = [QFBEnv(noise_std=noise, **env_kwargs) for _ in range(len(model_names))]
+        env_kwargs = dict(rm_loc=os.path.join('metadata', 'LHC_TRM_B1.response'),
+                          calibration_loc=os.path.join('metadata', 'LHC_circuit.calibration'),
+                          perturb_state=False)
+        envs = [QFBNLEnv(**env_kwargs) for _ in range(len(model_names))]
+        opt_envs = [QFBNLEnv(**env_kwargs) for _ in range(len(model_names))]
 
-    plot_individual(models[0], envs[0], opt_envs[0])
-    # plot_rewards_statistics2(models, envs, opt_envs, model_names, ['r', 'tab:orange', 'b'], noise)
-    # save_agent_vs_optimal_gif(models[0], envs[0], opt_envs[0], model_names[0], title_names[0])
-    # model_prefix = 'SAC_QFB_011321_1618'
-    # eval_set(model_prefix, env)
+        plot_rewards_statistics1(models, envs, opt_envs, title_names, colors=['r', 'b']) # last color is for pi action
 
 
 if __name__ == '__main__':
-    test_qfbnlen()
+    main()
