@@ -9,21 +9,21 @@ class QFBEnv(gym.Env):
     # Constants
     F_s = 11245.55
     EPISODE_LENGTH_LIMIT = 40
-    obs_lim = 5
+    obs_lim = 2
 
     # Data paths
     RM_LOC = os.path.join('..', 'metadata', 'LHC_TRM_B1.response')
     CALIBRATION_LOC = os.path.join('..', 'metadata', 'LHC_circuit.calibration')
 
     # Controller boundaries in Hertz
-    Q_INIT_STD_HZ = 150
+    Q_INIT_LIMIT_HZ = 30
     Q_GOAL_HZ = 1
-    Q_LIMIT_HZ = 200
+    Q_LIMIT_HZ = 30
     Q_STEP_MAX_HZ = 0.01 * F_s
     T_s = 0.08
 
     # Normalise boundaries
-    Q_init_std = Q_INIT_STD_HZ / Q_LIMIT_HZ
+    Q_init_std = Q_INIT_LIMIT_HZ / Q_LIMIT_HZ
     Q_goal = Q_GOAL_HZ / Q_LIMIT_HZ
     Q_step_max = Q_STEP_MAX_HZ / Q_LIMIT_HZ
 
@@ -64,13 +64,16 @@ class QFBEnv(gym.Env):
         self._reward = None
         self._reward_thresh = self.objective([QFBEnv.Q_goal] * self.obs_dimension)
         self.reward_deque = deque(maxlen=5)
+        self.it = 0
 
     def reset(self, init_state=None):
         if init_state is None:
-            init_state = np.random.normal(0, self.Q_init_std, size=self.obs_dimension)
-            self.current_state = np.clip(a=init_state, a_min=-1.0, a_max=1.0)
-        else:
-            self.current_state = init_state
+            init_state = np.random.uniform(-self.Q_init_std, self.Q_init_std, size=self.obs_dimension)
+            init_state = np.clip(a=init_state, a_min=-1.0, a_max=1.0)
+
+        self.current_state = init_state
+
+        self.it = 0
 
         return self.current_state
 
@@ -108,14 +111,17 @@ class QFBEnv(gym.Env):
         self.reward_deque.append(r)
 
     def objective(self, state):
-        state_reward = -np.square(np.sum(np.abs(state)))
+        # state_reward = -np.square(np.sum(np.abs(state)))
+        state_reward = -np.sum(np.square(state)) / self.obs_dimension
 
         return state_reward
 
     def is_done(self):
+        self.it += 1
+
         # Reach goal
         if np.mean(self.reward_deque) > self._reward_thresh or \
-                np.max(np.abs(self.current_state)) > QFBEnv.obs_lim:
+                self.it >= self.EPISODE_LENGTH_LIMIT:
             done = True
         else:
             done = False

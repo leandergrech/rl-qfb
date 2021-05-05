@@ -915,41 +915,49 @@ def aedyna(real_env, num_epochs=50, steps_per_env=100, algorithm='SAC',
         fig, axs = plt.subplots(2, 1, sharex=True)
         x = np.arange(len(batch_rews_all[0]))
         ax = axs[0]
-        ax.step(x, batch_rews_all[0])
+        color = 'b'
+        ax.step(x, batch_rews_all[0], color=color, label='batch_rews_all')
         ax.fill_between(x, batch_rews_all[0] - batch_rews_all[1], batch_rews_all[0] + batch_rews_all[1],
-                        alpha=0.5)
+                        alpha=0.5, color=color)
         ax.set_ylabel('rews per batch')
 
         ax.set_title(label)
+        ax.legend(loc='upper left')
 
         ax2 = ax.twinx()
-
         color = 'lime'
         ax2.set_ylabel('data points', color=color)  # we already handled the x-label with ax1
         ax2.tick_params(axis='y', labelcolor=color)
-        ax2.step(x, step_counts_all, color=color)
+        ax2.step(x, step_counts_all, color=color, label='step_counts_all')
+        ax2.legend('upper right')
 
         ax = axs[1]
-        ax.plot(sim_rewards_all[0], ls=':')
+        color = 'b'
+        ax.plot(sim_rewards_all[0], ls=':', color=color, label='sim_rewards_all')
         ax.fill_between(x, sim_rewards_all[0] - sim_rewards_all[1], sim_rewards_all[0] + sim_rewards_all[1],
-                        alpha=0.5)
+                        alpha=0.5, color=color)
         try:
-            ax.plot(tests_all[0])
+            color = 'red'
+            ax.plot(tests_all[0], color=color, label='tests_all')
             ax.fill_between(x, tests_all[0] - tests_all[1], tests_all[0] + tests_all[1],
-                            alpha=0.5)
+                            color=color, alpha=0.5)
             ax.axhline(y=np.max(tests_all[0]), c='orange')
         except:
             pass
         ax.set_ylabel('rewards tests')
         # plt.tw
         ax.grid(True)
+        ax.legend(loc='upper left')
         ax2 = ax.twinx()
 
         color = 'lime'
         ax2.set_ylabel('success', color=color)  # we already handled the x-label with ax1
         ax2.tick_params(axis='y', labelcolor=color)
         ax2.plot(length_all, color=color)
+        ax2.legend(loc='upper right')
+
         fig.align_labels()
+        fig.tight_layout()
         plt.show()
 
     def save_data(data, **kwargs):
