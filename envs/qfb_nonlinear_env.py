@@ -96,7 +96,7 @@ class QFBNLEnv(QFBEnv):
         return self.current_state, self.reward, done, {}
 
     def objective(self, state):
-        reward = -np.mean(np.abs(state))
+        reward = -np.square(np.sum(np.abs(state)))
         return reward
     def pi_controller_action(self):
         """
