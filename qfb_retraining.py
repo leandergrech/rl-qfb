@@ -6,7 +6,7 @@ from stable_baselines.td3.policies import MlpPolicy as TD3Policy
 from stable_baselines.common.callbacks import CheckpointCallback
 from datetime import datetime as dt
 
-from envs.qfb_env import QFBEnv
+from qfb_env.qfb_env import QFBEnv
 
 # import warnings
 # warnings.filterwarnings("ignore", category=FutureWarning)

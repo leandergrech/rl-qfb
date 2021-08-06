@@ -1,7 +1,7 @@
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Input, Dense
 
-from envs.qfb_env import QFBEnv
+from qfb_env.qfb_env import QFBEnv
 
 if __name__ == '__main__':
     env = QFBEnv()

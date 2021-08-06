@@ -6,8 +6,8 @@ from stable_baselines.sac.policies import MlpPolicy as SACPolicy
 from stable_baselines.common.callbacks import CheckpointCallback
 from datetime import datetime as dt
 
-# from envs.qfb_env import QFBEnv
-from envs.qfb_env_carnival import QFBEnvCarnival
+# from qfb_env.qfb_env import QFBEnv
+from qfb_env.qfb_env_carnival import QFBEnvCarnival
 
 # import warnings
 # warnings.filterwarnings("ignore", category=FutureWarning)

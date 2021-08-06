@@ -8,7 +8,7 @@ class GeneralizingReplayWrapper(object):
         self.replay_buffer = replay_buffer
 
         self.generalising_factor = 0.2 # Defined as the percentage of data which is coming from real experience
-        self.noise_std = 0.05
+        self.noise_std = 0.1
         # self._storage = []
         # self._maxsize = size
         # self._next_idx = 0
@@ -46,9 +46,10 @@ class GeneralizingReplayWrapper(object):
             obs_t, act, rew, obs_tp1, done = \
                 traj_data[0][j], traj_data[1][j], traj_data[2][j], traj_data[3][j], traj_data[4][j]
 
-            obs_t += np.random.normal(0.0, self.noise_std, len(obs_t))
-            obs_tp1 += np.random.normal(0.0, self.noise_std, len(obs_t))
-            act += np.random.normal(0.0, self.noise_std, len(act))
+            random_offset = np.random.normal(0.0, self.noise_std)
+            obs_t += random_offset
+            obs_tp1 += random_offset
+            # rew -= random_offset
 
             obses_t.append(obs_t)
             actions.append(act)

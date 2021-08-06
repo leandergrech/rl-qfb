@@ -49,9 +49,9 @@ class NormalizeEnv(gym.Wrapper):
         return (2 * ob - (self.obs_high + self.obs_low)) / scale
 
 
-if __name__ == '__main__':
-    from random_env import RandomEnv
-    env = RandomEnv(5, 5, np.load('random_env_rms\\random_env_5x5.npy'))
-    nenv = NormalizeEnv(env)
-
-    print(nenv.state_from_env(env.observation_space.low))
+# if __name__ == '__main__':
+    # from random_env import RandomEnv
+    # env = RandomEnv(5, 5, np.load('random_env_rms\\random_env_5x5.npy'))
+    # nenv = NormalizeEnv(env)
+    #
+    # print(nenv.state_from_env(env.observation_space.low))

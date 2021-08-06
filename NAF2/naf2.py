@@ -3,7 +3,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
-from tqdm import tqdm
+# from tqdm import tqdm
 import tensorflow as tf
 from tensorflow.keras.layers import Input, Dense
 from tensorflow.keras.models import Model
@@ -11,7 +11,8 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import TensorBoard
 
 from normalize_env import NormalizeEnv
-from replay_buffer import ReplayBuffer
+from NAF2.replay_buffer import ReplayBuffer
+
 
 tf.get_logger().setLevel('ERROR')
 tf.keras.backend.set_floatx('float64')
@@ -119,7 +120,8 @@ class QModel:
         return layer(x)
 
     def get_action(self, state):
-        return self.action_model.predict(np.array(state))
+        # return self.action_model.predict(np.array(state))
+        return self.action_model(np.array(state))
 
     def get_value_estimate(self, state):
         return self.value_model.predict(np.array(state))
@@ -242,7 +244,8 @@ class NAF2(object):
                               'kernel_initializer': tf.random_normal_initializer(0, 0.05)},
                  save_frequency=1000, log_frequency=100, directory=None,
                  tb_log=None, q_smoothing_sigma=0.02, q_smoothing_clip=0.05, soft_init=False,
-                 noise_fn=None):
+                 noise_fn=None,
+                 callback=None):
         """
         :param env: open gym environment to be solved
         :dict training_info: dictionary containing info for the training of the network
@@ -255,18 +258,21 @@ class NAF2(object):
         :param nafnet_info: keywords to handle the network and training
         """
 
-        self.env = NormalizeEnv(env)
-        self.act_dim = self.env.action_space.shape[0]
-        self.obs_dim = self.env.observation_space.shape[0]
+        if env is not None:
+            self.env = NormalizeEnv(env)
+            self.act_dim = self.env.action_space.shape[0]
+            self.obs_dim = self.env.observation_space.shape[0]
+        else:
+            self.act_dim = 16
+            self.obs_dim = 2
 
         self.train_every = train_every
         self.save_frequency = save_frequency
         self.log_frequency = log_frequency
 
         self.eval_env = eval_info.get('eval_env', None) # If None, no evaluation is done during training
-        self.eval_frequency = eval_info.get('frequency', 1000)
+        self.eval_frequency = eval_info.get('frequency', 100)
         self.eval_nb_eps = eval_info.get('nb_episodes', 10)
-        self.eval_max_steps = eval_info.get('max_ep_steps', 100)
 
         self.q_smoothing_sigma = q_smoothing_sigma
         self.q_smoothing_clip = q_smoothing_clip
@@ -281,6 +287,7 @@ class NAF2(object):
         else:
             self.noise_function = noise_fn
 
+        self.num_timesteps = 0
         self.idx_episode = None
 
         self.training_info = training_info
@@ -288,9 +295,12 @@ class NAF2(object):
         self.batch_size = training_info.get('batch_size', 100)
 
         self.directory = directory
-        self.tb_writer = tf.summary.create_file_writer(tb_log).set_as_default()
 
-        if not soft_init:
+        self.tb_writer = None
+        if tb_log is not None:
+            self.tb_writer = tf.summary.create_file_writer(tb_log).set_as_default()
+
+        if not soft_init and directory is not None:
             if not os.path.exists(directory):
                 os.makedirs(directory)
             else:
@@ -326,11 +336,11 @@ class NAF2(object):
         self.q_main_model_1.set_target_models(self.q_target_model_1, self.q_target_model_2)
         self.q_main_model_2.set_target_models(self.q_target_model_2, self.q_target_model_1)
 
-        self.it = 0
+        self.num_timesteps = 0
         self.memory = ReplayBuffer(self.obs_dim, self.act_dim, buffer_size)
 
     # deterministic predict
-    def predict(self, state):
+    def predict(self, state, deterministic=None):
         return self._predict(self.q_target_model_1, state, False)
 
     def _predict(self, model, state, is_train):
@@ -365,27 +375,27 @@ class NAF2(object):
         #     action = model.get_action([state])
         #     return action
 
-    def training(self, nb_steps=int(1e5), max_ep_steps=100, warm_up_steps=100, initial_episode_length=5):
+    def training(self, nb_steps=int(1e5), max_ep_steps=100, warm_up_steps=100, initial_episode_length=5, callback=None):
         self.warm_up_steps = warm_up_steps
         self.initial_episode_length = initial_episode_length
 
         self.max_ep_steps = max_ep_steps
         self.nb_steps = nb_steps
 
-        self._training()
+        self._training(callback)
 
     @property
     def _warmup_done(self):
         return self.memory.size > self.warm_up_steps
 
-    def _training(self):
+    def _training(self, callback):
         self.idx_episode = 0
         ep_step = 0
         o = self.env.reset()
         ep_len = []
-        pbar = tqdm(total=self.nb_steps)
+        # pbar = tqdm(total=self.nb_steps)
         for t in range(0, self.nb_steps):
-            self.it = t
+            self.num_timesteps = t
             # 1. predict
             a = np.squeeze(self._predict(model=self.q_main_model_1, state=o, is_train=True))
 
@@ -398,6 +408,7 @@ class NAF2(object):
 
             o2, r, d, _ = self.env.step(a)
             ep_step += 1
+
 
             self.memory.store(o, a, r, o2, d)
 
@@ -431,18 +442,17 @@ class NAF2(object):
 
                 if t % self.log_frequency == 0:
                     lookback = self.log_frequency//self.train_every
-                    tf.summary.scalar('loss/q_main_model_1', data=np.mean(self.losses_q1[-lookback:]), step=self.it)
-                    tf.summary.scalar('loss/q_main_model_2', data=np.mean(self.losses_q2[-lookback:]), step=self.it)
-                    if self.idx_episode > 0:
-                        tf.summary.scalar('training/average_episode_length', data=np.mean(ep_len[-lookback:]), step=self.it)
-                    tf.summary.scalar('info/episode_idx', data=self.idx_episode, step=self.it)
+                    tf.summary.scalar('loss/q_main_model_1', data=np.mean(self.losses_q1[-lookback:]), step=self.num_timesteps)
+                    tf.summary.scalar('loss/q_main_model_2', data=np.mean(self.losses_q2[-lookback:]), step=self.num_timesteps)
+                    # if self.idx_episode > 0:
+                    #     tf.summary.scalar('training/average_episode_length', data=np.mean(ep_len[-lookback:]), step=self.num_timesteps)
+                    # tf.summary.scalar('info/episode_idx', data=self.idx_episode, step=self.num_timesteps)
                     tf.summary.flush()
 
                 if t % self.save_frequency == 0:
                     self.save_checkpoint()
 
-            if t % int(self.nb_steps/100) == 0:
-                pbar.update(int(self.nb_steps/100))
+            pbar.update(1)
 
     # def _training(self, is_train=True):
     #     pbar = tqdm(total=self.max_episodes * self.max_ep_steps)
@@ -466,7 +476,7 @@ class NAF2(object):
     #                 # print('Initial reset at ', t)
     #
     #             # 2. train
-    #             if self.it % self.train_every == 0 and is_train and self.memory.size > self.warm_up_steps:
+    #             if self.num_timesteps % self.train_every == 0 and is_train and self.memory.size > self.warm_up_steps:
     #                 loss_q1 = self.q_main_model_1.\
     #                     batch_training_step(self.memory.sample_batch(self.batch_size))[-1]
     #                 loss_q2 = self.q_main_model_2.\
@@ -475,23 +485,23 @@ class NAF2(object):
     #                 self.losses_q1.append(loss_q1)
     #                 self.losses_q2.append(loss_q2)
     #
-    #             if self.it > 0 and self.memory.size > self.warm_up_steps:
-    #                 if self.it % self.save_frequency == 0:
-    #                     #print(f'-> Saving checkpoint on step {self.it}')
+    #             if self.num_timesteps > 0 and self.memory.size > self.warm_up_steps:
+    #                 if self.num_timesteps % self.save_frequency == 0:
+    #                     #print(f'-> Saving checkpoint on step {self.num_timesteps}')
     #                     self.save_checkpoint()
     #
-    #                 if self.it % self.eval_frequency == 0:
-    #                     #print(f'-> Evaluating on step {self.it}')
+    #                 if self.num_timesteps % self.eval_frequency == 0:
+    #                     #print(f'-> Evaluating on step {self.num_timesteps}')
     #                     self.evaluate()
     #
-    #                 if self.it % self.log_frequency == 0:
-    #                     #print(f'-> Logging on step {self.it}')
+    #                 if self.num_timesteps % self.log_frequency == 0:
+    #                     #print(f'-> Logging on step {self.num_timesteps}')
     #                     lookback = self.log_frequency//self.train_every
-    #                     tf.summary.scalar('loss/q_main_model_1', data=np.mean(self.losses_q1[-lookback:]), step=self.it)
-    #                     tf.summary.scalar('loss/q_main_model_2', data=np.mean(self.losses_q2[-lookback:]), step=self.it)
+    #                     tf.summary.scalar('loss/q_main_model_1', data=np.mean(self.losses_q1[-lookback:]), step=self.num_timesteps)
+    #                     tf.summary.scalar('loss/q_main_model_2', data=np.mean(self.losses_q2[-lookback:]), step=self.num_timesteps)
     #                     tf.summary.flush()
     #
-    #             self.it += 1
+    #             self.num_timesteps += 1
     #             pbar.update(1)
     #             if d:
     #                 break
@@ -502,7 +512,7 @@ class NAF2(object):
             print('Nothing is marked for saving')
             return
 
-        number = str(self.it).zfill(4)
+        number = str(self.num_timesteps).zfill(4)
         par_dir = os.path.join(self.directory, f'step_{number}')
         os.makedirs(par_dir)
         if save_buffer:
@@ -529,23 +539,93 @@ class NAF2(object):
         self.q_target_model_1.load_model(par_dir)
         self.q_target_model_2.load_model(par_dir)
 
+    @classmethod
+    def load(cls, load_path, **kwargs):
+        """
+        Load the model from file
+
+        :param load_path: (str or file-like) the saved parameter location
+        :param env: (Gym Environment) the new environment to run the loaded model on
+            (can be None if you only need prediction from a trained model)
+        :param custom_objects: (dict) Dictionary of objects to replace
+            upon loading. If a variable is present in this dictionary as a
+            key, it will not be deserialized and the corresponding item
+            will be used instead. Similar to custom_objects in
+            `keras.models.load_model`. Useful when you have an object in
+            file that can not be deserialized.
+        :param kwargs: extra arguments to change the model when loading
+        """
+
+        training_info = dict(polyak=0.999,
+                             batch_size=100,
+                             steps_per_batch=10,
+                             epochs=1,
+                             learning_rate=1e-3,
+                             discount=0.9999)
+        nafnet_info = dict(hidden_sizes=[50, 50],
+                           activation=tf.nn.relu,
+                           kernel_initializer=tf.random_normal_initializer(0, 0.05, seed=123))
+        params = dict(buffer_size=int(5e3),
+                      q_smoothing_sigma=0.02,
+                      q_smoothing_clip=0.05)
+
+        # linearly decaying noise function
+        noise_episode_thresh = 40
+        n_act = 16
+        noise_fn = lambda act, i: act + np.random.randn(n_act) * max(1 - i / noise_episode_thresh, 0)
+        agent = cls(env=None,
+                    buffer_size=params['buffer_size'],
+                    train_every=1,
+                    training_info=training_info,
+                    eval_info={},
+                    save_frequency=200,
+                    log_frequency=10,
+                    directory=None,
+                    tb_log=None,
+                    q_smoothing_sigma=params['q_smoothing_sigma'],
+                    q_smoothing_clip=params['q_smoothing_clip'],
+                    nafnet_info=nafnet_info,
+                    noise_fn=noise_fn)
+
+        agent.q_main_model_1.load_model(load_path)
+        agent.q_main_model_2.load_model(load_path)
+        agent.q_target_model_1.load_model(load_path)
+        agent.q_target_model_2.load_model(load_path)
+
+        return agent
+
     def evaluate(self):
         if self.eval_env is None:
             return
 
         env = self.eval_env
-        ret = []
+        returns = []
+        ep_lens = []
+        success = []
         for ep in range(self.eval_nb_eps):
             o = env.reset()
-            ret.append(0.0)
-            for step in range(self.eval_max_steps):
+            ret = 0
+            step = -1
+            while True:
+                step += 1
                 a = self._predict(self.q_target_model_1, o, False).squeeze()
                 o, r, d, _ = env.step(a)
-                ret[-1] += r
+                ret += r
                 if d:
                     break
-        mean_return = np.mean(ret)
-        tf.summary.scalar('training/episode_return', data=mean_return, step=self.it)
+            ep_lens.append(step + 1)
+            returns.append(ret)
+            if ep_lens[-1] == self.env.EPISODE_LENGTH_LIMIT:
+                success.append(0.0)
+            else:
+                success.append(1.0)
+        returns = np.mean(returns)
+        ep_lens = np.mean(ep_lens)
+        success = np.mean(success) * 100
+
+        tf.summary.scalar('episode_return', data=returns, step=self.num_timesteps)
+        tf.summary.scalar('episode_length', data=ep_lens, step=self.num_timesteps)
+        tf.summary.scalar('success', data=success, step=self.num_timesteps)
 
     def visualize(self):
         state = np.zeros(self.env.observation_space.shape)

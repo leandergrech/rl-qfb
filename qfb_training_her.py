@@ -3,7 +3,7 @@ import os
 from stable_baselines import TD3, HER
 from datetime import datetime as dt
 
-from envs.qfb_env import QFBGoalEnv
+from qfb_env.qfb_env import QFBGoalEnv
 
 # import warnings
 # warnings.filterwarnings("ignore", category=FutureWarning)

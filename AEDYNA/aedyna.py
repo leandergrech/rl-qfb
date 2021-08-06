@@ -2,50 +2,56 @@ import os
 import pickle
 import sys
 from datetime import datetime
+from datetime import datetime as dt
 
 import gym
 import matplotlib.pyplot as plt
 import numpy as np
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
 import stable_baselines
+from stable_baselines.common.callbacks import CheckpointCallback, BaseCallback
 # from inverted_pendulum import PendulumEnv
 
 '''This script includes the AE-DYNA algorithm. It runs on tensorflow 1.15 since it needs also the stable base lines.
 https://github.com/hill-a/stable-baselines '''
 
 # set random seed
-random_seed = 111
+random_seed = 123
 np.random.seed(random_seed)
 
 ############################################################
 # Hyperparameters
 ############################################################
 
-steps_per_epoch = 200
-init_random_steps = 200
-# num_epochs = int((total_steps - init_random_steps) / steps_per_env) + 1
-num_epochs = 10
-print('Number of epochs: ', num_epochs)
+steps_per_epoch = 1000
+init_random_steps = 2000
+num_epochs = 20
 
-max_training_iterations = 50
+max_training_iterations = 30
 delay_before_convergence_check = 5
 
-simulated_steps = 2500
+simulated_steps = 5000
 
 model_batch_size = 100
-num_ensemble_models = 3
+num_ensemble_models =5
 
 early_stopping = True
-model_iter = 30
+model_iter = 15
+
+network_size = 100
 
 # How often to check the progress of the network training
 # e.g. lambda it, episode: (it + 1) % max(3, (ep+1)*2) == 0
-dynamic_wait_time = lambda it, ep: (it + 1) % (ep + 1) * 2 == 0  #
+# dynamic_wait_time = lambda it, ep: (it + 1) % (ep + 1) * 2 == 0  #
+dynamic_wait_time = lambda it, ep: (it + 1) % (ep + 1) == 0  # LG [19/06/2021]
 
 # Learning rate as function of ep:
-lr_start = 1e-3
-lr_end = 1e-3
-lr = lambda ep: max(lr_start + ep / 30 * (lr_end - lr_start), lr_end)
+# lr_start = 5e-4
+# lr_end = 5e-4
+# lr = lambda ep: max(lr_start + ep / 30 * (lr_end - lr_start), lr_end)
+lr = lambda ep: 1e-3
 
 # Set max episode length manually here for the pendulum
 max_steps = 200
@@ -190,29 +196,31 @@ class MonitoringEnv(gym.Wrapper):
         self.current_buffer.save_buffer()
 
     def scale_state_env(self, ob):
-        scale = (self.env.observation_space.high - self.env.observation_space.low)
-        return (2 * ob - (self.env.observation_space.high + self.env.observation_space.low)) / scale
+        return ob / 5
+        # scale = (self.env.observation_space.high - self.env.observation_space.low)
+        # return (2 * ob - (self.env.observation_space.high + self.env.observation_space.low)) / scale
         # return ob
 
     def descale_action_env(self, act):
-        scale = (self.env.action_space.high - self.env.action_space.low)
-        return np.squeeze(scale * act + self.env.action_space.high + self.env.action_space.low) / 2
-        # return act
+        # scale = (self.env.action_space.high - self.env.action_space.low)
+        # return np.squeeze(scale * act + self.env.action_space.high + self.env.action_space.low) / 2
+        return act
 
     def rew_scale(self, rew):
         # we only scale for the network training:
         # if not self.test_env_flag:
         #     rew = rew * 2 + 1
 
-        if not self.verification:
-            '''Rescale reward from [-1,0] to [-1,1] for the training of the network in case of tests'''
-            rew = rew * 2 + 1
-            # pass
+        # if not self.verification:
+        #     '''Rescale reward from [-1,0] to [-1,1] for the training of the network in case of tests'''
+        #     rew = rew * 2 + 1
+        #     pass
+
         #     if rew < -1:
         #         print('Hallo was geht: ', rew)
         #     else:
         #         print('Okay...', rew)
-        return rew
+        return rew / 3
 
     def save_current_buffer(self, info=''):
         self.current_buffer = self.data_dict.get(self.environment_usage)
@@ -244,7 +252,7 @@ def test_agent(env_test, agent_op, num_games=10):
     '''
     games_r = []
     games_length = []
-    games_dones = []
+    games_success = []
     for _ in range(num_games):
         d = False
         game_r = 0
@@ -260,12 +268,12 @@ def test_agent(env_test, agent_op, num_games=10):
             game_r += r
             game_length += 1
             # print(o, a_s, r)
-        success = r > -0.05
+        success = r > -0.0016
         # print(r)
-        games_r.append(game_r)
-        games_length.append(success)
-        games_dones.append(d)
-    return np.mean(games_r), np.std(games_r), np.mean(games_length), np.mean(games_dones)
+        games_r.append(game_r/game_length)
+        games_length.append(game_length)
+        games_success.append(success)
+    return np.mean(games_r), np.std(games_r), np.mean(games_length), np.mean(games_success)
 
 
 class FullBuffer():
@@ -337,7 +345,8 @@ class NN:
 
             self.inputs = tf.scalar_mul(0.5, self.inputs)
             self.layer_1_w = tf.layers.Dense(hidden_size,
-                                             activation=tf.nn.tanh,
+                                             # activation=tf.nn.tanh,
+                                             activation=tf.nn.relu,
                                              kernel_initializer=tf.random_normal_initializer(mean=0.,
                                                                                              stddev=self.init_params.get(
                                                                                                  'init_stddev_1_w'),
@@ -350,7 +359,8 @@ class NN:
             self.layer_1 = self.layer_1_w.apply(self.inputs)
             self.layer_1 = tf.scalar_mul(0.5, self.layer_1)
             self.layer_2_w = tf.layers.Dense(hidden_size,
-                                             activation=tf.nn.tanh,
+                                             # activation=tf.nn.tanh,
+                                             activation=tf.nn.relu,
                                              kernel_initializer=tf.random_normal_initializer(mean=0.,
                                                                                              stddev=self.init_params.get(
                                                                                                  'init_stddev_1_w'),
@@ -364,7 +374,7 @@ class NN:
             #
             self.output_w = tf.layers.Dense(y_dim,
                                             activation=None,
-                                            use_bias=False,
+                                            # use_bias=False,
                                             kernel_initializer=tf.random_normal_initializer(mean=0.,
                                                                                             stddev=self.init_params.get(
                                                                                                 'init_stddev_2_w'),
@@ -603,9 +613,86 @@ def restore_model(old_model_variables, m_variables):
     return tf.group(*restore_m_params)
 
 
-def aedyna(real_env, num_epochs=50, steps_per_env=100, algorithm='SAC',
+class EvaluationCallback(BaseCallback):
+	MAX_EPS = 20
+	def __init__(self, env):
+		self.env = env
+		self.current_best_model_ep_len = self.env.EPISODE_LENGTH_LIMIT
+		self.current_best_model_save_dir = ''
+
+		self.gamma = 0.99
+		self.discounts = [np.power(self.gamma, i) for i in range(self.env.EPISODE_LENGTH_LIMIT)]
+		super(EvaluationCallback, self).__init__()
+
+	def _on_step(self):
+		# if self.locals['done']:
+		# 	if self.env.it >= self.env.max_steps:
+		# 		self.locals['done'] = False
+		# 		self.env.reset()
+
+		if self.num_timesteps % 1000 == 0:
+			q_err = []
+			returns = []
+			ep_lens = []
+			success = []
+
+			for ep in range(self.MAX_EPS):
+				o = self.env.reset()
+				step = 0
+
+				ep_state_list = []
+				ep_action_list = []
+				ep_rewards_list = []
+
+				while True:
+					step += 1
+					a = self.model.predict(o, deterministic=True)[0]
+
+					ep_state_list.append(o)
+					ep_action_list.append(a)
+
+					o, r, d, _ = self.env.step(a)
+
+					ep_rewards_list.append(r)
+					if d:
+						break
+
+					### END OF EPISODE LOOP ###
+
+				# Measure q estimation error
+				# estimated_q = self.model.sess.run(self.model.target_policy_tf.qf1,
+				# 								  {self.model.actions_ph: ep_action_list,
+				# 								   self.model.processed_next_obs_ph: ep_state_list}).reshape(-1)
+				# real_q = []
+				# for i in range(step):
+				# 	real_q.append(sum([rew * disc for rew, disc in zip(ep_rewards_list[i:], self.discounts)]))
+				# q_err.append(np.mean(np.subtract(estimated_q, real_q)))
+
+				ep_lens.append(step)
+				returns.append(sum(ep_rewards_list))
+				if ep_lens[-1] == self.env.EPISODE_LENGTH_LIMIT:
+					success.append(0.0)
+				else:
+					success.append(1.0)
+
+				### END OF EPISODE ###
+
+			# q_err = np.mean(q_err)
+			returns = np.mean(returns)
+			ep_lens = np.mean(ep_lens)
+			success = np.mean(success) * 100
+
+			for tag, val in zip(('episode_return', 'episode_length', 'success'),#, 'q_err'),
+								(returns, ep_lens, success)):#, q_err)):
+				summary = tf.Summary(value=[tf.Summary.Value(tag=tag, simple_value=val)])
+				self.locals['writer'].add_summary(summary, self.num_timesteps)
+
+		return True
+
+
+def aedyna(real_env, eval_env, num_epochs=50, steps_per_env=100, algorithm='SAC',
            simulated_steps=1000, num_ensemble_models=2, model_iter=15, model_batch_size=512,
-           init_random_steps=steps_per_epoch):
+           init_random_steps=steps_per_epoch, agent_params={}):
     '''
     Anchor ensemble dyna reinforcement learning
 
@@ -625,13 +712,22 @@ def aedyna(real_env, num_epochs=50, steps_per_env=100, algorithm='SAC',
     model_iter: number of iterations without improvement before stopping training the model
     '''
 
+    model_name = f'AE-DYNA-{algorithm}_{dt.strftime(dt.now(), "%m%d%y_%H%M")}'
+    save_dir = os.path.join(f'models_{algorithm}', model_name)
+
+    callback_chkpt = CheckpointCallback(save_freq=100, save_path=save_dir, name_prefix=model_name)
+    eval_callback = EvaluationCallback(eval_env)
+    agent_callbacks = [callback_chkpt, eval_callback]
+
     # Select the RL-algorithm
-    if algorithm == 'SAC':
+    if algorithm == 'PPO':
+        from stable_baselines.common.policies import MlpPolicy
+        from stable_baselines import PPO2 as Agent
+    elif algorithm == 'SAC':
         from stable_baselines.sac.policies import MlpPolicy
         from stable_baselines import SAC as Agent
     else:
-        from stable_baselines.common.policies import MlpPolicy
-        from stable_baselines import PPO2 as Agent
+        assert False, f"Either 'SAC' or 'PPO': {algorithm} not recognised"
 
     tf.reset_default_graph()
 
@@ -706,14 +802,8 @@ def aedyna(real_env, num_epochs=50, steps_per_env=100, algorithm='SAC',
     #########################################################
     ##################### END MODEL #########################
     #########################################################
-    # Time stamp for logging
-    now = datetime.now()
-    clock_time = "{}_{}_{}_{}".format(now.day, now.hour, now.minute, now.second)
-    print('Time:', clock_time)
-
-    hyp_str = '-spe_' + str(steps_per_env)
-    file_writer = tf.summary.FileWriter('log_dir/' + env_name + '/' + algorithm + '_' + clock_time + '_' + hyp_str,
-                                        tf.get_default_graph())
+    file_writer_model = tf.summary.FileWriter(os.path.join('logs_model', model_name), tf.get_default_graph())
+    agent_tb_loc = os.path.join('logs_agent', model_name)
 
     #################################################################################################
 
@@ -832,19 +922,14 @@ def aedyna(real_env, num_epochs=50, steps_per_env=100, algorithm='SAC',
         # Restore the model with the lower validation loss
         model_assign(model_idx, best_mb['params'])
 
-        print('Model:{}, iter:{} -- Old Val loss:{:.6f}  New Val loss:{:.6f} -- '
-              'New Train loss:{:.6f} -- Loss_data {:.6f}'.format(model_idx,
-                                                                 it,
-                                                                 mb_valid_loss1,
-                                                                 best_mb[
-                                                                     'loss'],
-                                                                 np.mean(
-                                                                     last_m_losses), ml))
+        print(f"Model:{model_idx}, iter:{it} -- Old Val loss:{mb_valid_loss1:.6f}  New Val loss:{best_mb['loss']:.6f} -- "
+              f"New Train loss:{np.mean(last_m_losses):.6f} -- Loss_data {ml:.6f}")
+
         summary = tf.Summary()
         summary.value.add(tag='supplementary/m_loss', simple_value=np.mean(acc_m_losses))
         summary.value.add(tag='supplementary/iterations', simple_value=it)
-        file_writer.add_summary(summary, step_count)
-        file_writer.flush()
+        file_writer_model.add_summary(summary, step_count)
+        file_writer_model.flush()
 
     def plot_results(env_wrapper, label=None, **kwargs):
         """ Plot the validation episodes"""
@@ -852,20 +937,23 @@ def aedyna(real_env, num_epochs=50, steps_per_env=100, algorithm='SAC',
 
         iterations = []
         finals = []
-        means = []
-        stds = []
+        inits = []
+        # means = []
+        # stds = []
 
         for i in range(len(rewards)):
             if (len(rewards[i]) > 1):
                 finals.append(rewards[i][-1])
-                means.append(np.mean(rewards[i][1:]))
-                stds.append(np.std(rewards[i][1:]))
+                # means.append(np.mean(rewards[i][1:]))
+                # stds.append(np.std(rewards[i][1:]))
+                inits.append(rewards[i][0])
                 iterations.append(len(rewards[i]))
         x = range(len(iterations))
         iterations = np.array(iterations)
         finals = np.array(finals)
-        means = np.array(means)
-        stds = np.array(stds)
+        inits = np.array(inits)
+        # means = np.array(means)
+        # stds = np.array(stds)
 
         plot_suffix = label
 
@@ -894,11 +982,12 @@ def aedyna(real_env, num_epochs=50, steps_per_env=100, algorithm='SAC',
 
         ax1 = plt.twinx(ax)
         color = 'lime'
-        ax1.set_ylabel('Mean reward', color=color)  # we already handled the x-label with ax1
+        ax1.set_ylabel('Init reward', color=color)  # we already handled the x-label with ax1
         ax1.tick_params(axis='y', labelcolor=color)
-        ax1.fill_between(x, means - stds, means + stds,
-                         alpha=0.5, edgecolor=color, facecolor='#FF9848')
-        ax1.plot(x, means, color=color)
+        # ax1.fill_between(x, means - stds, means + stds,
+        #                  alpha=0.5, edgecolor=color, facecolor='#FF9848')
+        # ax1.plot(x, means, color=color)
+        ax1.plot(x, inits, color=color)
 
         if 'save_name' in kwargs:
             plt.savefig(kwargs.get('save_name') + '.pdf')
@@ -912,48 +1001,52 @@ def aedyna(real_env, num_epochs=50, steps_per_env=100, algorithm='SAC',
         batch_rews_all = np.array(data.get('batch_rews_all'))
         tests_all = np.array(data.get('tests_all'))
 
-        fig, axs = plt.subplots(2, 1, sharex=True)
         x = np.arange(len(batch_rews_all[0]))
+
+        fig, axs = plt.subplots(2, 1, sharex=True)
+        fig.suptitle(label)
+
         ax = axs[0]
         color = 'b'
-        ax.step(x, batch_rews_all[0], color=color, label='batch_rews_all')
+        ax.plot(x, batch_rews_all[0], color=color, label='Batch rewards')
         ax.fill_between(x, batch_rews_all[0] - batch_rews_all[1], batch_rews_all[0] + batch_rews_all[1],
                         alpha=0.5, color=color)
-        ax.set_ylabel('rews per batch')
-
-        ax.set_title(label)
+        ax.set_ylabel('Rewards')
         ax.legend(loc='upper left')
 
         ax2 = ax.twinx()
         color = 'lime'
+        ax2.step(x, step_counts_all, color=color, label='step_counts_all')
         ax2.set_ylabel('data points', color=color)  # we already handled the x-label with ax1
         ax2.tick_params(axis='y', labelcolor=color)
-        ax2.step(x, step_counts_all, color=color, label='step_counts_all')
-        ax2.legend('upper right')
+        ax2.legend(loc='upper right')
 
         ax = axs[1]
+        # ax.set_yscale('symlog')
         color = 'b'
-        ax.plot(sim_rewards_all[0], ls=':', color=color, label='sim_rewards_all')
+        ax.plot(sim_rewards_all[0], ls=':', color=color, label='Simulation rewards')
         ax.fill_between(x, sim_rewards_all[0] - sim_rewards_all[1], sim_rewards_all[0] + sim_rewards_all[1],
                         alpha=0.5, color=color)
         try:
             color = 'red'
-            ax.plot(tests_all[0], color=color, label='tests_all')
+            ax.plot(tests_all[0], color=color, label='Test rewards')
             ax.fill_between(x, tests_all[0] - tests_all[1], tests_all[0] + tests_all[1],
                             color=color, alpha=0.5)
-            ax.axhline(y=np.max(tests_all[0]), c='orange')
+            # ax.axhline(y=np.max(tests_all[0]), c='orange')
         except:
             pass
-        ax.set_ylabel('rewards tests')
+        ax.set_ylabel('Rewards')
         # plt.tw
         ax.grid(True)
         ax.legend(loc='upper left')
-        ax2 = ax.twinx()
 
+        ax2 = ax.twinx()
         color = 'lime'
-        ax2.set_ylabel('success', color=color)  # we already handled the x-label with ax1
+        ax2.plot(length_all, color=color, label='Test')
+
+        ax2.set_ylabel('Episode length', color=color)  # we already handled the x-label with ax1
         ax2.tick_params(axis='y', labelcolor=color)
-        ax2.plot(length_all, color=color)
+
         ax2.legend(loc='upper right')
 
         fig.align_labels()
@@ -964,9 +1057,8 @@ def aedyna(real_env, num_epochs=50, steps_per_env=100, algorithm='SAC',
         '''logging function to save results to pickle'''
         now = datetime.now()
         clock_time = f'{now.month:0>2}_{now.day:0>2}_{now.hour:0>2}_{now.minute:0>2}_{now.second:0>2}'
-        out_put_writer = open(project_directory + clock_time + '_training_observables', 'wb')
-        pickle.dump(data, out_put_writer, -1)
-        out_put_writer.close()
+        with open(project_directory + clock_time + '_training_observables', 'wb') as f:
+            pickle.dump(data, f, -1)
 
     # variable to store the total number of steps
     step_count = 0
@@ -1005,26 +1097,24 @@ def aedyna(real_env, num_epochs=50, steps_per_env=100, algorithm='SAC',
     batch_rews_std_all = []
     step_counts_all = []
 
-    agent = Agent(MlpPolicy, sim_env, verbose=1)
+    agent = Agent(MlpPolicy, sim_env, **agent_params, tensorboard_log=agent_tb_loc, verbose=1)
     for ep in range(num_epochs):
 
         # lists to store rewards and length of the trajectories completed
         batch_rew = []
         batch_len = []
-        print('============================', ep, '============================')
+        print(f'============================ Epoch {ep} ============================')
         # Execute in serial the environment, storing temporarily the trajectories.
         env.reset()
 
         # iterate over a fixed number of steps
         steps_train = init_random_steps if ep == 0 else steps_per_env
 
+        print(f'-> Get data from {steps_train} steps')
         for _ in range(steps_train):
             # run the policy
-
             if ep == 0:
                 # Sample random action during the first epoch
-                # if step_count % 5 == 0:
-                #     env.reset()
                 act = np.random.uniform(-1, 1, size=act_dim)
                 act = np.squeeze(act)
             else:
@@ -1040,7 +1130,7 @@ def aedyna(real_env, num_epochs=50, steps_per_env=100, algorithm='SAC',
             step_count += 1
 
             if done:
-                batch_rew.append(env.get_episode_reward())
+                batch_rew.append(env.get_episode_reward() / env.get_episode_length())
                 batch_len.append(env.get_episode_length())
 
                 env.reset()
@@ -1048,12 +1138,7 @@ def aedyna(real_env, num_epochs=50, steps_per_env=100, algorithm='SAC',
         # save the data for plotting the collected data for the model
         env.save_current_buffer()
 
-        print('Ep:%d Rew:%.2f -- Step:%d' % (ep, np.mean(batch_rew), step_count))
-
-        # env_test.env.set_usage('default')
-        # plot_results(env_test, f'Total {total_iterations}, '
-        #                        f'data points: {len(model_buffer.train_idx) + len(model_buffer.valid_idx)}, '
-        #                        f'modelit: {ep}')
+        print(f' `->Ep:{ep} Rew:{np.mean(batch_rew):.2f} -- Step:{step_count}')
 
         ############################################################
         ###################### MODEL LEARNING ######################
@@ -1061,15 +1146,16 @@ def aedyna(real_env, num_epochs=50, steps_per_env=100, algorithm='SAC',
 
         target_threshold = max(model_buffer.rew)
         sim_env.threshold = target_threshold  # min(target_threshold, -0.05)
-        print('maximum: ', sim_env.threshold)
+        # print('maximum: ', sim_env.threshold)
 
         mb_lr = lr(ep)
-        print('mb_lr: ', mb_lr)
+        # print('mb_lr: ', mb_lr)
         if early_stopping:
             model_buffer.generate_random_dataset(ratio=0.1)
         else:
             model_buffer.generate_random_dataset()
 
+        print(f'-> Train {num_ensemble_models} models')
         for i in range(num_ensemble_models):
             # Initialize randomly a training and validation set
 
@@ -1083,34 +1169,32 @@ def aedyna(real_env, num_epochs=50, steps_per_env=100, algorithm='SAC',
         ############################################################
         ###################### POLICY LEARNING #####################
         ############################################################
+        print(f'-> Train {algorithm} agent on models')
         data = model_buffer.get_maximum()
-        print(data)
         label = f'Total {total_iterations}, ' + \
                 f'data points: {len(model_buffer)}, ' + \
                 f'ep: {ep}, max: {data}\n' + hyp_str_all
         # sim_env.visualize(data=data, label=label)
 
         best_sim_test = -1e16 * np.ones(num_ensemble_models)
-        agent = Agent(MlpPolicy, sim_env, verbose=1)
+        agent = Agent(MlpPolicy, sim_env, **agent_params, tensorboard_log=agent_tb_loc, verbose=1)
         for it in range(max_training_iterations):
             total_iterations += 1
-            print('\t Policy it', it, end='..')
+            print(' `-> Policy it', it, end='..')
 
             ################# Agent UPDATE ################
-            agent.learn(total_timesteps=simulated_steps, log_interval=1000, reset_num_timesteps=False)
+            agent.learn(total_timesteps=simulated_steps, tb_log_name=model_name, log_interval=10,
+                        reset_num_timesteps=False, callback=agent_callbacks)
 
             if dynamic_wait_time(it, ep):
-                print('Iterations: ', total_iterations)
+            # if True:
+                print(' `-> Iterations: ', total_iterations)
                 label = f'Total {total_iterations}, ' + \
                         f'data points: {len(model_buffer)}, ' + \
                         f'ep: {ep}, it: {it}\n' + hyp_str_all
                 env_test.env.set_usage('test')
                 mn_test, mn_test_std, mn_length, mn_success = test_agent(env_test, agent.predict, num_games=5)
-                print(' Test score: ', np.round(mn_test, 2), np.round(mn_test_std, 2),
-                      np.round(mn_length, 2), np.round(mn_success, 2))
-                # plot results of test
-                # plot_results(env_test, label=label)
-                # env_test.save_current_buffer(info=label)
+                print(f' `-> Test score: Mean rew={mn_test:.2f} Std rew={mn_test_std:.2f} Mean len={mn_length:.2f} success={mn_success * 100:.2f}')
 
                 # Save the data for plotting the tests
                 tests_all.append(mn_test)
@@ -1119,17 +1203,17 @@ def aedyna(real_env, num_epochs=50, steps_per_env=100, algorithm='SAC',
 
                 env_test.env.set_usage('default')
 
-                print('Simulated test:', end=' ** ')
+                print(' `-> Simulated score:')
 
                 sim_rewards = []
                 for i in range(num_ensemble_models):
                     sim_m_env = NetworkEnv(make_env(), lambda o, a: model_op(o, a, i), None, number_models=i,
                                            verification=True)
-                    mn_sim_rew, _, _, _ = test_agent(sim_m_env, agent.predict, num_games=10)
+                    mn_sim_rew, mn_sim_rew_std, mn_sim_len, mn_sim_succ = test_agent(sim_m_env, agent.predict, num_games=10)
                     sim_rewards.append(mn_sim_rew)
-                    print(mn_sim_rew, end=' ** ')
 
-                print("")
+                    print(
+                        f'   `-> Model {i}: Mean rew={mn_sim_rew:.2f} Std rew={mn_sim_rew_std:.2f} Mean len={mn_sim_len:.2f} success={mn_sim_succ * 100:.2f}')
 
                 step_counts_all.append(step_count)
 
@@ -1148,7 +1232,7 @@ def aedyna(real_env, num_epochs=50, steps_per_env=100, algorithm='SAC',
                             info=label)
 
                 # save the data for plotting the progress -------------------
-                save_data(data=data)
+                # save_data(data=data)
 
                 # plotting the progress -------------------
                 # if it % 10 == 0:
@@ -1157,7 +1241,7 @@ def aedyna(real_env, num_epochs=50, steps_per_env=100, algorithm='SAC',
                 # stop training if the policy hasn't improved
                 if (np.sum(best_sim_test >= sim_rewards) >= int(num_ensemble_models * 0.7)):
                     if it > delay_before_convergence_check and ep < num_epochs - 1:
-                        print('break-no improvement in', int(num_ensemble_models * 0.7), ' models')
+                        print(f'-> BREAK - no improvement in {int(num_ensemble_models * 0.7)} models')
                         break
                 else:
                     best_sim_test = sim_rewards
@@ -1178,7 +1262,7 @@ def aedyna(real_env, num_epochs=50, steps_per_env=100, algorithm='SAC',
 
     # closing environments..
     env.close()
-    file_writer.close()
+    file_writer_model.close()
 
 
 def old_main():
@@ -1307,29 +1391,46 @@ def old_main():
            simulated_steps=simulated_steps,
            num_ensemble_models=num_ensemble_models, model_iter=model_iter, init_random_steps=init_random_steps)
 
-if __name__ == '__main__':
-    from envs.qfb_nonlinear_env import QFBNLEnv
+project_directory = None
+init_params = dict(init_stddev_1_w=np.sqrt(1),
+                   init_stddev_1_b=np.sqrt(1),
+                   init_stddev_2_w=1 / np.sqrt(network_size))  # normalise the data
+
+data_noise = 0.0
+lambda_anchor = data_noise ** 2 / (np.array([init_params['init_stddev_1_w'],
+                                             init_params['init_stddev_1_b'],
+                                             init_params['init_stddev_2_w']]) ** 2)
+
+hyp_str_all = 'steps-epoch' + str(steps_per_epoch) + '_n-epochs' + str(num_epochs) + \
+                  '_model-batchsize' + str(model_batch_size) + \
+                  '_sim-steps' + str(simulated_steps) + \
+                  '\nmodel-iter' + str(model_iter) + '_n-ens-models' + str(num_ensemble_models) + '_init-steps' + str(
+        init_random_steps) + '/'
+
+def new_main():
+    global project_directory
+
+    from qfb_env.qfb_nonlinear_env import QFBNLEnv
 
     random_seed = 123
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
     model_name = f"AEDYNA_QFBNL"#_{datetime.strftime(datetime.now(), '%m%d%y_%H%M')}"
     project_directory = os.path.join('models', model_name)
 
-    hyp_str_all = 'nr_steps_' + str(steps_per_epoch) + '-n_ep_' + str(num_epochs) + \
-                  '-m_bs_' + str(model_batch_size) + \
-                  '-sim_steps_' + str(simulated_steps) + \
-                  '-m_iter_' + str(model_iter) + '-ensnr_' + str(num_ensemble_models) + '-init_' + str(
-        init_random_steps) + '/'
-
-    network_size = 50
-    init_params = dict(init_stddev_1_w=np.sqrt(1),
-                       init_stddev_1_b=np.sqrt(1),
-                       init_stddev_2_w=1 / np.sqrt(network_size))  # normalise the data
-    data_noise = 0.0
-    lambda_anchor = data_noise ** 2 / (np.array([init_params['init_stddev_1_w'],
-                                                 init_params['init_stddev_1_b'],
-                                                 init_params['init_stddev_2_w']]) ** 2)
-
+    ppo_params = dict(
+        gamma=0.99,
+        n_steps=128, # 32,
+        ent_coef=0.01,
+        learning_rate=2.5e-4,
+        vf_coef=0.5,
+        max_grad_norm=0.5,
+        lam=0.95,
+        nminibatches=4,
+        noptepochs=4,
+        cliprange=0.2,
+        cliprange_vf=None,
+        policy_kwargs={'net_arch': [100, 100]}
+    )
 
     env_kwargs = dict(rm_loc=os.path.join('..', 'metadata', 'LHC_TRM_B1.response'),
                       calibration_loc=os.path.join('..', 'metadata', 'LHC_circuit.calibration'))
@@ -1337,8 +1438,9 @@ if __name__ == '__main__':
     env = QFBNLEnv(**env_kwargs)
     eval_env = QFBNLEnv(**env_kwargs)
 
-    env = QFBNLEnv()
+    aedyna(real_env=env, eval_env=eval_env, num_epochs=num_epochs, steps_per_env=steps_per_epoch, algorithm='PPO',
+           simulated_steps=simulated_steps, num_ensemble_models=num_ensemble_models, model_iter=model_iter, model_batch_size=model_batch_size,
+           init_random_steps=init_random_steps, agent_params=ppo_params)
 
-    aedyna(real_env=env, num_epochs=50, steps_per_env=1000, algorithm='SAC',
-           simulated_steps=1000, num_ensemble_models=2, model_iter=15, model_batch_size=100,#model_batch_size=512,
-           init_random_steps=1000)
+if __name__ == '__main__':
+    new_main()

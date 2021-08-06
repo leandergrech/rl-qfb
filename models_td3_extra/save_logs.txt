@@ -1,0 +1,259 @@
+-> models\TD3_QFBNL_051821_0944
+ `-> gamma = 0.99
+ `-> learning_rate = 0.0003
+ `-> buffer_size = 50000
+ `-> learning_starts = 100
+ `-> train_freq = 100
+ `-> gradient_steps = 100
+ `-> batch_size = 128
+ `-> tau = 0.005
+ `-> policy_delay = 2
+ `-> action_noise = None
+ `-> target_policy_noise = 0.2
+ `-> target_noise_clip = 0.5
+ `-> random_exploration = 0.0
+ `-> policy_kwargs = {'layers': [50, 50]}
+ `-> random_seed = 123
+
+-> models\TD3_QFBNL_051821_1006
+ `-> gamma = 0.99
+ `-> learning_rate = 0.0003
+ `-> buffer_size = 50000
+ `-> learning_starts = 100
+ `-> train_freq = 100
+ `-> gradient_steps = 100
+ `-> batch_size = 128
+ `-> tau = 0.005
+ `-> policy_delay = 2
+ `-> action_noise = None
+ `-> target_policy_noise = 0.2
+ `-> target_noise_clip = 0.5
+ `-> random_exploration = 0.0
+ `-> policy_kwargs = {'layers': [50, 50]}
+ `-> random_seed = 234
+
+-> models\TD3_QFBNL_051821_1028
+ `-> gamma = 0.99
+ `-> learning_rate = 0.0003
+ `-> buffer_size = 50000
+ `-> learning_starts = 100
+ `-> train_freq = 100
+ `-> gradient_steps = 100
+ `-> batch_size = 128
+ `-> tau = 0.005
+ `-> policy_delay = 2
+ `-> action_noise = None
+ `-> target_policy_noise = 0.2
+ `-> target_noise_clip = 0.5
+ `-> random_exploration = 0.0
+ `-> policy_kwargs = {'layers': [50, 50]}
+ `-> random_seed = 345
+
+-> models\TD3_QFBNL_051821_1050
+ `-> gamma = 0.99
+ `-> learning_rate = 0.0003
+ `-> buffer_size = 50000
+ `-> learning_starts = 100
+ `-> train_freq = 100
+ `-> gradient_steps = 100
+ `-> batch_size = 128
+ `-> tau = 0.005
+ `-> policy_delay = 2
+ `-> action_noise = None
+ `-> target_policy_noise = 0.2
+ `-> target_noise_clip = 0.5
+ `-> random_exploration = 0.0
+ `-> policy_kwargs = {'layers': [50, 50]}
+ `-> random_seed = 456
+
+-> models\TD3_QFBNL_051821_1102
+ `-> gamma = 0.99
+ `-> learning_rate = 0.0001
+ `-> buffer_size = 50000
+ `-> learning_starts = 100
+ `-> train_freq = 100
+ `-> gradient_steps = 100
+ `-> batch_size = 128
+ `-> tau = 0.05
+ `-> policy_delay = 2
+ `-> action_noise = None
+ `-> target_policy_noise = 0.2
+ `-> target_noise_clip = 0.5
+ `-> random_exploration = 0.0
+ `-> policy_kwargs = {'layers': [50, 50]}
+ `-> random_seed = 123
+
+-> models\TD3_QFBNL_051821_1124
+ `-> gamma = 0.99
+ `-> learning_rate = 0.0001
+ `-> buffer_size = 50000
+ `-> learning_starts = 100
+ `-> train_freq = 100
+ `-> gradient_steps = 100
+ `-> batch_size = 128
+ `-> tau = 0.05
+ `-> policy_delay = 2
+ `-> action_noise = None
+ `-> target_policy_noise = 0.2
+ `-> target_noise_clip = 0.5
+ `-> random_exploration = 0.0
+ `-> policy_kwargs = {'layers': [50, 50]}
+ `-> random_seed = 234
+
+-> models\TD3_QFBNL_051821_1145
+ `-> gamma = 0.99
+ `-> learning_rate = 0.0001
+ `-> buffer_size = 50000
+ `-> learning_starts = 100
+ `-> train_freq = 100
+ `-> gradient_steps = 100
+ `-> batch_size = 128
+ `-> tau = 0.05
+ `-> policy_delay = 2
+ `-> action_noise = None
+ `-> target_policy_noise = 0.2
+ `-> target_noise_clip = 0.5
+ `-> random_exploration = 0.0
+ `-> policy_kwargs = {'layers': [50, 50]}
+ `-> random_seed = 345
+
+-> models\TD3_QFBNL_051821_1207
+ `-> gamma = 0.99
+ `-> learning_rate = 0.0001
+ `-> buffer_size = 50000
+ `-> learning_starts = 100
+ `-> train_freq = 100
+ `-> gradient_steps = 100
+ `-> batch_size = 128
+ `-> tau = 0.05
+ `-> policy_delay = 2
+ `-> action_noise = None
+ `-> target_policy_noise = 0.2
+ `-> target_noise_clip = 0.5
+ `-> random_exploration = 0.0
+ `-> policy_kwargs = {'layers': [50, 50]}
+ `-> random_seed = 456
+
+-> models\TD3_QFBNL_051821_1229
+ `-> gamma = 0.99
+ `-> learning_rate = 0.0001
+ `-> buffer_size = 50000
+ `-> learning_starts = 100
+ `-> train_freq = 100
+ `-> gradient_steps = 100
+ `-> batch_size = 128
+ `-> tau = 0.05
+ `-> policy_delay = 2
+ `-> action_noise = None
+ `-> target_policy_noise = 0.2
+ `-> target_noise_clip = 0.5
+ `-> random_exploration = 0.0
+ `-> policy_kwargs = {'layers': [50, 50]}
+ `-> random_seed = 567
+
+-> TD3_QFBNL_061121_1544
+ `-> gamma = 0.99
+ `-> learning_rate = 3e-05
+ `-> buffer_size = 10000
+ `-> learning_starts = 100
+ `-> train_freq = 100
+ `-> gradient_steps = 100
+ `-> batch_size = 128
+ `-> tau = 0.05
+ `-> policy_delay = 2
+ `-> action_noise = None
+ `-> target_policy_noise = 0.02
+ `-> target_noise_clip = 0.05
+ `-> random_exploration = 0.0
+ `-> policy_kwargs = {'layers': [50, 50]}
+ `-> random_seed = 123
+
+-> TD3_QFBNL_060921_2244
+ `-> gamma = 0.99
+ `-> learning_rate = 3e-05
+ `-> buffer_size = 10000
+ `-> learning_starts = 100
+ `-> train_freq = 100
+ `-> gradient_steps = 100
+ `-> batch_size = 128
+ `-> tau = 0.05
+ `-> policy_delay = 2
+ `-> action_noise = None
+ `-> target_policy_noise = 0.2
+ `-> target_noise_clip = 0.5
+ `-> random_exploration = 0.0
+ `-> policy_kwargs = {'layers': [50, 50]}
+ `-> random_seed = 123
+
+-> models\TD3_QFBNL_061121_1749
+ `-> gamma = 0.99
+ `-> learning_rate = 3e-05
+ `-> buffer_size = 10000
+ `-> learning_starts = 100
+ `-> train_freq = 100
+ `-> gradient_steps = 100
+ `-> batch_size = 128
+ `-> tau = 0.05
+ `-> policy_delay = 2
+ `-> action_noise = <__main__.DecayingNormalActionNoise object at 0x000001DB2ACBCC18>
+ `-> target_policy_noise = 0.02
+ `-> target_noise_clip = 0.05
+ `-> random_exploration = 0.0
+ `-> policy_kwargs = {'layers': [50, 50]}
+ `-> random_seed = 123
+
+-> models\TD3_QFBNL_061121_1833
+ `-> gamma = 0.99
+ `-> learning_rate = 3e-05
+ `-> buffer_size = 10000
+ `-> learning_starts = 100
+ `-> train_freq = 100
+ `-> gradient_steps = 100
+ `-> batch_size = 128
+ `-> tau = 0.05
+ `-> policy_delay = 2
+ `-> action_noise = <__main__.DecayingNormalActionNoise object at 0x000001F2DDD5AC88>
+ `-> target_policy_noise = 0.02
+ `-> target_noise_clip = 0.05
+ `-> random_exploration = 0.0
+ `-> policy_kwargs = {'layers': [50, 50]}
+ `-> random_seed = 123
+
+-> models\TD3_QFBNL_061121_1852
+ `-> gamma = 0.99
+ `-> learning_rate = <function train_random_seed.<locals>.learning_rate at 0x000001BAFEFDD730>
+ `-> buffer_size = 10000
+ `-> learning_starts = 100
+ `-> train_freq = 100
+ `-> gradient_steps = 100
+ `-> batch_size = 128
+ `-> tau = 0.05
+ `-> policy_delay = 2
+ `-> action_noise = <__main__.DecayingNormalActionNoise object at 0x000001BAC2F6AC88>
+ `-> target_policy_noise = 0.02
+ `-> target_noise_clip = 0.05
+ `-> random_exploration = 0.0
+ `-> policy_kwargs = {'layers': [50, 50]}
+ `-> random_seed = 123
+
+-> models\TD3_QFBNL_061121_1908
+ `-> gamma = 0.99
+ `-> learning_rate = <function train_random_seed.<locals>.learning_rate at 0x000002287EFBD730>
+ `-> buffer_size = 10000
+ `-> learning_starts = 100
+ `-> train_freq = 100
+ `-> gradient_steps = 100
+ `-> batch_size = 128
+ `-> tau = 0.05
+ `-> policy_delay = 2
+ `-> action_noise = <__main__.DecayingNormalActionNoise object at 0x0000022832F3ACC0>
+ `-> target_policy_noise = 0.2
+ `-> target_noise_clip = 0.5
+ `-> random_exploration = 0.0
+ `-> policy_kwargs = {'layers': [50, 50]}
+ `-> random_seed = 123
+
+
+
+
+
