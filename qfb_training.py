@@ -3,19 +3,15 @@ import numpy as np
 
 import tensorflow as tf
 from stable_baselines import SAC, TD3, PPO2
-from NAF2.naf2 import NAF2
 from stable_baselines.sac.policies import MlpPolicy as SACPolicy
 from stable_baselines.td3.policies import MlpPolicy as TD3Policy
-from stable_baselines.common.policies import MlpPolicy as PPOPolicy
 from stable_baselines.common.callbacks import CheckpointCallback, BaseCallback
-from stable_baselines.common.noise import NormalActionNoise, ActionNoise
+from stable_baselines.common.noise import ActionNoise
 from datetime import datetime as dt
 
-from qfb_env.qfb_env.qfb_nonlinear_env import QFBNLEnv
+from qfb_env.envs.qfb_nonlinear_env import QFBNLEnv
 # from qfb_env.qfb_nonlinear_env import QFBNLEnv
 # from qfb_env.qfb_env import QFBEnv
-
-from replay_buffer.generalizing_replay_wrapper import GeneralizingReplayWrapper
 
 # import warnings
 # warnings.filterwarnings("ignore", category=FutureWarning)
@@ -156,46 +152,46 @@ def train_random_seed():
 		# learning_rate = DecayingLearningRate(5e-5, 5e-6, lr_decay_frac)
 
 		##### SAC start #####
-		sac_params = dict(
-			gamma = 0.99,
-			learning_rate = 1e-3,
-			buffer_size = int(5e5),#nb_steps,
-			learning_starts = 1000,
-			train_freq = 1,
-			batch_size = 256,#64,
-			tau = 0.005,
-			ent_coef = 'auto',
-			target_update_interval = 1,
-			gradient_steps = 3,
-			target_entropy = 'auto',
-			action_noise = None,
-			random_exploration = 0.0,
-			policy_kwargs={'layers': [50, 50]}
-		)
-		replay_wrapper = None#GeneralizingReplayWrapper
-		model = SAC(SACPolicy, env, **sac_params, verbose=1, tensorboard_log='logs',
-					_init_setup_model=True, full_tensorboard_log=False,
-					seed=random_seed, n_cpu_tf_sess=6)
+		# sac_params = dict(
+		# 	gamma = 0.99,
+		# 	learning_rate = 1e-3,
+		# 	buffer_size = int(5e5),#nb_steps,
+		# 	learning_starts = 1000,
+		# 	train_freq = 1,
+		# 	batch_size = 256,#64,
+		# 	tau = 0.005,
+		# 	ent_coef = 'auto',
+		# 	target_update_interval = 1,
+		# 	gradient_steps = 3,
+		# 	target_entropy = 'auto',
+		# 	action_noise = None,
+		# 	random_exploration = 0.0,
+		# 	policy_kwargs={'layers': [50, 50]}
+		# )
+		# replay_wrapper = None#GeneralizingReplayWrapper
+		# model = SAC(SACPolicy, env, **sac_params, verbose=1, tensorboard_log='logs',
+		# 			_init_setup_model=True, full_tensorboard_log=False,
+		# 			seed=random_seed, n_cpu_tf_sess=6)
 		##### SAC finish #####
 
 		##### PPO2 start #####
-		# ppo_params = dict(
-		# 	gamma = 0.99,
-		# 	n_steps = 128,
-		# 	ent_coef = 0.01,
-		# 	learning_rate = 2.5e-4,
-		# 	vf_coef = 0.5,
-		# 	max_grad_norm = 0.5,
-		# 	lam = 0.95,
-		# 	nminibatches = 4,
-		# 	noptepochs = 4,
-		# 	cliprange = 0.2,
-		# 	cliprange_vf = None,
-		# 	policy_kwargs = {'net_arch': [100, 100]}
-		# )
-		# model = PPO2(PPOPolicy, env, **ppo_params, verbose=1,
-		# 			 tensorboard_log='logs', _init_setup_model=True,
-		# 			 full_tensorboard_log=False, seed=random_seed, n_cpu_tf_sess=None)
+		ppo_params = dict(
+			gamma = 0.99,
+			n_steps = 128,
+			ent_coef = 0.01,
+			learning_rate = 2.5e-4,
+			vf_coef = 0.5,
+			max_grad_norm = 0.5,
+			lam = 0.95,
+			nminibatches = 4,
+			noptepochs = 4,
+			cliprange = 0.2,
+			cliprange_vf = None,
+			policy_kwargs = {'net_arch': [100, 100]}
+		)
+		model = PPO2(PPOPolicy, env, **ppo_params, verbose=1,
+					 tensorboard_log='logs', _init_setup_model=True,
+					 full_tensorboard_log=False, seed=random_seed, n_cpu_tf_sess=None)
 		##### PPO2 finish #####
 
 		##### TD3 start #####
@@ -565,7 +561,7 @@ def train_hparams():
 		save_path = os.path.join(par_dir, model_name, f'{model_name}_final')
 		model.save(save_path)
 		print(f'Model saved to: {save_dir}')
-answer=-1/12
+
 if __name__ == '__main__':
     # train_hparams()
 	train_random_seed()
