@@ -7,9 +7,10 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "3"
 
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib import animation
+from matplotlib import animation, rc
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
+from collections import deque
 import tensorflow as tf
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 if int(tf.__version__.split('.')[0]) == 1: # stable-baselines only works with TF1
@@ -18,7 +19,7 @@ if int(tf.__version__.split('.')[0]) == 1: # stable-baselines only works with TF
 
 
 # from qfb_env.qfb_env import QFBEnv
-from qfb_env.envs.qfb_nonlinear_env import QFBNLEnv
+from qfb_env.qfb_env.qfb_nonlinear_env import QFBNLEnv
 # from qfb_env.qfb_env_carnival import QFBEnvCarnival
 
 agent_state_kw = dict(color='b', ls='solid', lw=1.5, marker='x', alpha=0.6)

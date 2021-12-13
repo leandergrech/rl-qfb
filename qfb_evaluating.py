@@ -1,14 +1,14 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib import animation
+from matplotlib import animation, rc
 from tqdm import tqdm as pbar
 import tensorflow as tf
-from stable_baselines import SAC
+from stable_baselines import TD3, SAC, PPO2
 # from NAF2.naf2 import NAF2
 
 # from qfb_env.qfb_env import QFBEnv
-from qfb_env.envs.qfb_nonlinear_env import QFBNLEnv
+from qfb_env.qfb_env.qfb_nonlinear_env import QFBNLEnv
 # from qfb_env.qfb_env_carnival import QFBEnvCarnival
 
 
