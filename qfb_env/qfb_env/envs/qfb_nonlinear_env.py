@@ -5,9 +5,12 @@ import matplotlib.pyplot as plt
 # from qfb_env import QFBEnv
 # from bbq.utils import magNormResponse, fitTuneMedianLessParams, noiseHarmonics
 # from bbq import settings as bs
-from .qfb_env import QFBEnv
-from .bbq.utils import magNormResponse, fitTuneMedianLessParams, noiseHarmonics
-from .bbq import settings as bs
+import qfb_env as q
+
+from qfb_env.envs import QFBEnv
+from qfb_env.bbq.utils import magNormResponse, fitTuneMedianLessParams, noiseHarmonics
+from qfb_env.bbq import settings as bs
+
 
 class QFBNLEnv(QFBEnv):
     """
@@ -17,7 +20,7 @@ class QFBNLEnv(QFBEnv):
     Large deviations of the tune between adjacent steps are also not permitted with a limit of 0.01*F_s ~ 112.5 Hz
     A PI controller is also implemented, where its response can be retured per step.
     """
-    def __init__(self, noise_std=0.0, perturb_state=True, **kwargs):
+    def __init__(self, noise_std=0.0, perturb_state=False, **kwargs):
         super(QFBNLEnv, self).__init__(noise_std=noise_std, **kwargs)
         # PI controller parameters
         # PID_K0 = 1.0
@@ -89,8 +92,9 @@ class QFBNLEnv(QFBEnv):
         :param action:
         :return:
         """
-        temp_action = np.copy(action)
-        temp_action += np.random.normal(0.0, self.noise_std, self.act_dimension)
+        noise = np.random.normal(0.0, self.noise_std, self.act_dimension)
+        temp_action = np.copy(action) + noise
+        # temp_action +=
         # '''Rate limit actions'''
         # max_abs_action = max(abs(temp_action))
         # if max_abs_action > 1:
@@ -121,7 +125,7 @@ class QFBNLEnv(QFBEnv):
         self.reward = self.objective(self.current_state)
         done, success = self.is_done()
 
-        return self.current_state, self.reward, done, {'is_success': success}
+        return np.array(self.current_state), self.reward, done, {'is_success': success}
 
     def objective(self, state):
         reward = -np.sum(np.square(state))/ self.obs_dimension
@@ -169,7 +173,7 @@ class QFBNLEnv(QFBEnv):
 
         pi_action = np.clip(pi_action, -1.0, 1.0)
 
-        return pi_action
+        return np.copy(pi_action)
 
 def comparing_qfbenv_qfbnlenv():
     import matplotlib.pyplot as plt
@@ -225,7 +229,7 @@ def comparing_qfbenv_qfbnlenv_noisy_tunes():
 
     env1 = QFBNLEnv()
     env2 = QFBNLEnv()
-    o1 = o2 = np.array([10, -10], dtype=np.float)
+    o1 = o2 = np.array([10, -10], dtype=np.float32)
     env1.reset(o1)
     env2.reset(o2)
 
@@ -328,8 +332,8 @@ def test_quad_malfunction():
     plt.show()
 
 def qfbnlenv_random_walk():
-    env_kwargs = dict(rm_loc=os.path.join('..', 'metadata', 'LHC_TRM_B1.response'),
-                      calibration_loc=os.path.join('..', 'metadata', 'LHC_circuit.calibration'),
+    env_kwargs = dict(rm_loc=os.path.join('../..', 'metadata', 'LHC_TRM_B1.response'),
+                      calibration_loc=os.path.join('../..', 'metadata', 'LHC_circuit.calibration'),
                       perturb_state=False,
                       noise_std=0.1)
     env = QFBNLEnv(**env_kwargs)
@@ -371,8 +375,8 @@ def qfbnlenv_random_walk():
 
 def average_optimal_episode_length():
     from tqdm import tqdm
-    env_kwargs = dict(rm_loc=os.path.join('..', 'metadata', 'LHC_TRM_B1.response'),
-                      calibration_loc=os.path.join('..', 'metadata', 'LHC_circuit.calibration'),
+    env_kwargs = dict(rm_loc=os.path.join('../..', 'metadata', 'LHC_TRM_B1.response'),
+                      calibration_loc=os.path.join('../..', 'metadata', 'LHC_circuit.calibration'),
                       perturb_state=False,
                       noise_std=0.1)
     env = QFBNLEnv(**env_kwargs)
@@ -396,8 +400,8 @@ def average_optimal_episode_length():
     print(f'Average episode length: {mu_unicode} = {np.mean(solved_len)}\t{sigma_unicode} = {np.std(solved_len)}')
 
 def tuning_pi_controller():
-    env_kwargs = dict(rm_loc=os.path.join('..', '..', 'metadata', 'LHC_TRM_B1.response'),
-                      calibration_loc=os.path.join('..', '..', 'metadata', 'LHC_circuit.calibration'),
+    env_kwargs = dict(rm_loc=os.path.join('../..', '..', 'metadata', 'LHC_TRM_B1.response'),
+                      calibration_loc=os.path.join('../..', '..', 'metadata', 'LHC_circuit.calibration'),
                       perturb_state=False,
                       noise_std=0.1)
     env = QFBNLEnv(**env_kwargs)
@@ -436,17 +440,10 @@ def tuning_pi_controller():
     plt.show()
 
 
-
-
-
-
-
-
-
 if __name__ == '__main__':
     # average_optimal_episode_length()
-    tuning_pi_controller()
-
+	tuning_pi_controller()
+# pass
 
 
 

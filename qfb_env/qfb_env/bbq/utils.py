@@ -190,7 +190,7 @@ standardize = lambda arr: (arr - np.mean(arr)) / np.std(arr)
 
 getBeamKey = lambda filename: os.path.basename(filename).split('_')[1].lower()
 
-is_cnn = lambda x: sum([1 if 'conv' in l.name else 0 for l in x.layers ]) > 0
+is_cnn = lambda x: sum([1 if 'conv' in l.name else 0 for l in x._mylayers]) > 0
 
 def getNbPointsInFFT(N):
     if N % 2 == 0:
