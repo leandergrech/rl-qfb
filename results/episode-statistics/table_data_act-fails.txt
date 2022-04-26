@@ -1,0 +1,253 @@
+PPO
+-> Number of failures = 0
+	-> Agent Mean ep.len. = 8.7970
+	-> Agent Std  ep.len. = 1.2821
+	-> Agent Mean dtc = 0.0080
+	-> Agent Std  dtc = 0.0011
+	-> PI Mean ep.len. = 20.0870
+	-> PI Std  ep.len. = 3.7032
+	-> PI Mean dtc = 0.0207
+	-> PI Std  dtc = 0.0014
+PPO
+-> Number of failures = 1
+	-> Agent Mean ep.len. = 9.1440
+	-> Agent Std  ep.len. = 1.5011
+	-> Agent Mean dtc = 0.0196
+	-> Agent Std  dtc = 0.0045
+	-> PI Mean ep.len. = 70.0000
+	-> PI Std  ep.len. = 0.0000
+	-> PI Mean dtc = 0.1695
+	-> PI Std  dtc = 0.0124
+PPO
+-> Number of failures = 3
+	-> Agent Mean ep.len. = 41.6020
+	-> Agent Std  ep.len. = 29.8470
+	-> Agent Mean dtc = 0.0701
+	-> Agent Std  dtc = 0.0225
+	-> PI Mean ep.len. = 70.0000
+	-> PI Std  ep.len. = 0.0000
+	-> PI Mean dtc = 1.5754
+	-> PI Std  dtc = 1.2325
+PPO
+-> Number of failures = 5
+	-> Agent Mean ep.len. = 70.0000
+	-> Agent Std  ep.len. = 0.0000
+	-> Agent Mean dtc = 0.5204
+	-> Agent Std  dtc = 1.0169
+	-> PI Mean ep.len. = 70.0000
+	-> PI Std  ep.len. = 0.0000
+	-> PI Mean dtc = 3.8693
+	-> PI Std  dtc = 1.8082
+C:\Users\Leander\miniconda3\envs\myenv\lib\site-packages\gym\logger.py:30: UserWarning: WARN: Box bound precision lowered by casting to float32
+  warnings.warn(colorize('%s: %s'%('WARN', msg % args), 'yellow'))
+Loading a model without an environment, this model cannot be trained until it has a valid environment.
+6it [06:16, 62.83s/it]
+
+NAF2
+-> Number of failures = 0
+	-> Agent Mean ep.len. = 9.0970
+	-> Agent Std  ep.len. = 1.3862
+	-> Agent Mean dtc = 0.0194
+	-> Agent Std  dtc = 0.0000
+	-> PI Mean ep.len. = 20.1810
+	-> PI Std  ep.len. = 3.7108
+	-> PI Mean dtc = 0.0207
+	-> PI Std  dtc = 0.0014
+NAF2
+-> Number of failures = 1
+	-> Agent Mean ep.len. = 33.0140
+	-> Agent Std  ep.len. = 29.2438
+	-> Agent Mean dtc = 0.0505
+	-> Agent Std  dtc = 0.0176
+	-> PI Mean ep.len. = 70.0000
+	-> PI Std  ep.len. = 0.0000
+	-> PI Mean dtc = 0.1680
+	-> PI Std  dtc = 0.0124
+NAF2
+-> Number of failures = 3
+	-> Agent Mean ep.len. = 69.1370
+	-> Agent Std  ep.len. = 7.0059
+	-> Agent Mean dtc = 0.1322
+	-> Agent Std  dtc = 0.0481
+	-> PI Mean ep.len. = 70.0000
+	-> PI Std  ep.len. = 0.0000
+	-> PI Mean dtc = 1.5002
+	-> PI Std  dtc = 1.2226
+NAF2
+-> Number of failures = 5
+	-> Agent Mean ep.len. = 70.0000
+	-> Agent Std  ep.len. = 0.0000
+	-> Agent Mean dtc = 0.5630
+	-> Agent Std  dtc = 0.8745
+	-> PI Mean ep.len. = 70.0000
+	-> PI Std  ep.len. = 0.0000
+	-> PI Mean dtc = 3.6323
+	-> PI Std  dtc = 1.6719
+
+SAC
+-> Number of failures = 0
+	-> Agent Mean ep.len. = 43.0890
+	-> Agent Std  ep.len. = 25.4853
+	-> Agent Mean dtc = 0.0381
+	-> Agent Std  dtc = 0.0246
+	-> PI Mean ep.len. = 20.3240
+	-> PI Std  ep.len. = 3.6010
+	-> PI Mean dtc = 0.0207
+	-> PI Std  dtc = 0.0013
+SAC
+-> Number of failures = 1
+	-> Agent Mean ep.len. = 62.9710
+	-> Agent Std  ep.len. = 17.7669
+	-> Agent Mean dtc = 0.2528
+	-> Agent Std  dtc = 0.1561
+	-> PI Mean ep.len. = 70.0000
+	-> PI Std  ep.len. = 0.0000
+	-> PI Mean dtc = 0.1706
+	-> PI Std  dtc = 0.0124
+SAC
+-> Number of failures = 3
+	-> Agent Mean ep.len. = 69.7220
+	-> Agent Std  ep.len. = 3.9284
+	-> Agent Mean dtc = 1.9212
+	-> Agent Std  dtc = 1.0386
+	-> PI Mean ep.len. = 70.0000
+	-> PI Std  ep.len. = 0.0000
+	-> PI Mean dtc = 1.1652
+	-> PI Std  dtc = 1.1551
+SAC
+-> Number of failures = 5
+	-> Agent Mean ep.len. = 70.0000
+	-> Agent Std  ep.len. = 0.0000
+	-> Agent Mean dtc = 5.0197
+	-> Agent Std  dtc = 1.8229
+	-> PI Mean ep.len. = 70.0000
+	-> PI Std  ep.len. = 0.0000
+	-> PI Mean dtc = 3.6286
+	-> PI Std  dtc = 1.7378
+C:\Users\Leander\miniconda3\envs\myenv\lib\site-packages\gym\logger.py:30: UserWarning: WARN: Box bound precision lowered by casting to float32
+  warnings.warn(colorize('%s: %s'%('WARN', msg % args), 'yellow'))
+Loading a model without an environment, this model cannot be trained until it has a valid environment.
+6it [06:20, 63.43s/it]
+TD3
+-> Number of failures = 0
+	-> Agent Mean ep.len. = 39.0580
+	-> Agent Std  ep.len. = 12.0764
+	-> Agent Mean dtc = 0.0332
+	-> Agent Std  dtc = 0.0035
+	-> PI Mean ep.len. = 20.3240
+	-> PI Std  ep.len. = 3.6010
+	-> PI Mean dtc = 0.0207
+	-> PI Std  dtc = 0.0013
+TD3
+-> Number of failures = 1
+	-> Agent Mean ep.len. = 69.0460
+	-> Agent Std  ep.len. = 6.2127
+	-> Agent Mean dtc = 0.8386
+	-> Agent Std  dtc = 0.7634
+	-> PI Mean ep.len. = 70.0000
+	-> PI Std  ep.len. = 0.0000
+	-> PI Mean dtc = 0.1692
+	-> PI Std  dtc = 0.0125
+TD3
+-> Number of failures = 3
+	-> Agent Mean ep.len. = 70.0000
+	-> Agent Std  ep.len. = 0.0000
+	-> Agent Mean dtc = 1.9633
+	-> Agent Std  dtc = 1.7892
+	-> PI Mean ep.len. = 70.0000
+	-> PI Std  ep.len. = 0.0000
+	-> PI Mean dtc = 0.9925
+	-> PI Std  dtc = 1.0015
+TD3
+-> Number of failures = 5
+
+	-> Agent Mean ep.len. = 70.0000
+	-> Agent Std  ep.len. = 0.0000
+	-> Agent Mean dtc = 3.4284
+	-> Agent Std  dtc = 2.0383
+	-> PI Mean ep.len. = 70.0000
+	-> PI Std  ep.len. = 0.0000
+	-> PI Mean dtc = 3.2036
+	-> PI Std  dtc = 1.4523
+
+SAC-TFL
+-> Number of failures = 0
+	-> Agent Mean ep.len. = 12.9720
+	-> Agent Std  ep.len. = 3.0343
+	-> Agent Mean dtc = 0.0241
+	-> Agent Std  dtc = 0.0122
+	-> PI Mean ep.len. = 19.8820
+	-> PI Std  ep.len. = 3.8050
+	-> PI Mean dtc = 0.0207
+	-> PI Std  dtc = 0.0014
+SAC-TFL
+-> Number of failures = 1
+	-> Agent Mean ep.len. = 29.4370
+	-> Agent Std  ep.len. = 24.6886
+	-> Agent Mean dtc = 0.0706
+	-> Agent Std  dtc = 0.0711
+	-> PI Mean ep.len. = 70.0000
+	-> PI Std  ep.len. = 0.0000
+	-> PI Mean dtc = 0.1690
+	-> PI Std  dtc = 0.0125
+SAC-TFL
+-> Number of failures = 3
+	-> Agent Mean ep.len. = 63.4480
+	-> Agent Std  ep.len. = 17.4002
+	-> Agent Mean dtc = 0.2597
+	-> Agent Std  dtc = 0.1698
+	-> PI Mean ep.len. = 70.0000
+	-> PI Std  ep.len. = 0.0000
+	-> PI Mean dtc = 1.2150
+	-> PI Std  dtc = 1.1456
+SAC-TFL
+-> Number of failures = 5
+	-> Agent Mean ep.len. = 69.9010
+	-> Agent Std  ep.len. = 2.2116
+	-> Agent Mean dtc = 0.9386
+	-> Agent Std  dtc = 0.7539
+	-> PI Mean ep.len. = 70.0000
+	-> PI Std  ep.len. = 0.0000
+	-> PI Mean dtc = 3.3734
+	-> PI Std  dtc = 1.5992
+
+AE-DYNA
+-> Number of failures = 0
+	-> Agent Mean ep.len. = 36.7930
+	-> Agent Std  ep.len. = 17.5463
+	-> Agent Mean dtc = 0.0366
+	-> Agent Std  dtc = 0.0354
+	-> PI Mean ep.len. = 20.0540
+	-> PI Std  ep.len. = 3.6449
+	-> PI Mean dtc = 0.0207
+	-> PI Std  dtc = 0.0014
+AE-DYNA
+-> Number of failures = 1
+	-> Agent Mean ep.len. = 61.5790
+	-> Agent Std  ep.len. = 15.9688
+	-> Agent Mean dtc = 0.1816
+	-> Agent Std  dtc = 0.1403
+	-> PI Mean ep.len. = 70.0000
+	-> PI Std  ep.len. = 0.0000
+	-> PI Mean dtc = 0.1691
+	-> PI Std  dtc = 0.0125
+AE-DYNA
+-> Number of failures = 3
+	-> Agent Mean ep.len. = 69.8170
+	-> Agent Std  ep.len. = 2.7217
+	-> Agent Mean dtc = 1.0313
+	-> Agent Std  dtc = 0.8746
+	-> PI Mean ep.len. = 70.0000
+	-> PI Std  ep.len. = 0.0000
+	-> PI Mean dtc = 0.9781
+	-> PI Std  dtc = 0.9687
+AE-DYNA
+-> Number of failures = 5
+	-> Agent Mean ep.len. = 70.0000
+	-> Agent Std  ep.len. = 0.0000
+	-> Agent Mean dtc = 2.1769
+	-> Agent Std  dtc = 1.4621
+	-> PI Mean ep.len. = 70.0000
+	-> PI Std  ep.len. = 0.0000
+	-> PI Mean dtc = 3.1034
+	-> PI Std  dtc = 1.3367
